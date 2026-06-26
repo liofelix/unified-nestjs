@@ -26,7 +26,7 @@ import { UsersModule } from './users/users.module';
           database: configService.getOrThrow<string>('DB_DATABASE'),
           autoLoadEntities: true,
           retryAttempts: 1,
-          synchronize: false,
+          synchronize: process.env.NODE_ENV !== 'production',
           migrationsRun: false,
         };
       },

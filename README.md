@@ -34,7 +34,19 @@ pnpm install
 | `DB_DATABASE` | 应用连接的数据库名称 | 是 |
 | `DB_NAME` | 预留字段 | 否 |
 
-数据库连接由 TypeORM 在应用启动时建立。连接配置关闭 `synchronize` 与自动执行迁移，因此不会自动创建或修改数据库表结构。
+数据库连接由 TypeORM 在应用启动时建立：开发环境开启 `synchronize`，会自动创建或同步表结构；生产环境关闭 `synchronize`，不会自动创建或修改表结构。
+
+## 用户接口
+
+用户表使用 UUID 主键，密码仅保存 bcrypt 哈希且不会出现在响应中。当前未接入认证上下文，创建人、更新人和删除人字段会保留为空。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/users` | 创建用户，传入 `username`、`email`、`password`。 |
+| `GET` | `/users` | 查询未删除用户。 |
+| `GET` | `/users/:id` | 查询单个未删除用户。 |
+| `PATCH` | `/users/:id` | 更新用户名或邮箱。 |
+| `DELETE` | `/users/:id` | 软删除用户，记录删除时间。 |
 
 ## 运行
 
