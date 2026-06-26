@@ -1,98 +1,71 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Unified NestJS
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+基于 NestJS、TypeORM 和 PostgreSQL 的后端服务。
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 环境要求
 
-## Description
+- Node.js
+- pnpm
+- PostgreSQL
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## 安装依赖
 
 ```bash
-$ pnpm install
+pnpm install
 ```
 
-## Compile and run the project
+## 环境配置
+
+应用通过 `NODE_ENV` 选择环境文件：
+
+- 未设置或非 `production`：读取 `.env.development`
+- `NODE_ENV=production`：读取 `.env.production`
+
+开发环境配置已提供在 `.env.development`。启动前请确保 PostgreSQL 已创建 `DB_DATABASE` 指定的数据库，并允许 `DB_USER` 连接。
+
+生产环境的 `.env.production` 仅作为字段模板。部署时应通过部署平台的环境变量注入真实值，避免将生产凭据提交到仓库。
+
+| 变量 | 说明 | 是否使用 |
+| --- | --- | --- |
+| `DB_HOST` | PostgreSQL 主机地址 | 是 |
+| `DB_PORT` | PostgreSQL 端口 | 是 |
+| `DB_USER` | PostgreSQL 用户名 | 是 |
+| `DB_PASSWORD` | PostgreSQL 密码 | 是 |
+| `DB_DATABASE` | 应用连接的数据库名称 | 是 |
+| `DB_NAME` | 预留字段 | 否 |
+
+数据库连接由 TypeORM 在应用启动时建立。连接配置关闭 `synchronize` 与自动执行迁移，因此不会自动创建或修改数据库表结构。
+
+## 运行
 
 ```bash
-# development
-$ pnpm run start
+# 开发环境
+pnpm run start
 
-# watch mode
-$ pnpm run start:dev
+# 开发环境，监听文件变化
+pnpm run start:dev
 
-# production mode
-$ pnpm run start:prod
+# 构建
+pnpm run build
+
+# 生产环境（自动设置 NODE_ENV=production）
+pnpm run start:prod
 ```
 
-## Run tests
+默认 HTTP 端口为 `3000`，可通过 `PORT` 环境变量覆盖。
+
+## 测试与检查
 
 ```bash
-# unit tests
-$ pnpm run test
+# 单元测试
+pnpm run test
 
-# e2e tests
-$ pnpm run test:e2e
+# 端到端测试
+pnpm run test:e2e
 
-# test coverage
-$ pnpm run test:cov
+# 覆盖率
+pnpm run test:cov
+
+# ESLint
+pnpm exec eslint 'src/**/*.ts'
 ```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
