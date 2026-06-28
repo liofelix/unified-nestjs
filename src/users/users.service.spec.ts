@@ -13,8 +13,17 @@ jest.mock('bcrypt', () => ({
 describe('UsersService', () => {
   let service: UsersService;
   let repository: jest.Mocked<
-    Pick<Repository<User>, 'create' | 'find' | 'findOne' | 'save'>
+    Pick<
+      Repository<User>,
+      'create' | 'createQueryBuilder' | 'find' | 'findOne' | 'save'
+    >
   >;
+  let queryBuilder: {
+    addSelect: jest.Mock;
+    andWhere: jest.Mock;
+    getOne: jest.Mock;
+    where: jest.Mock;
+  };
 
   const userId = 'e0716b8b-d8d7-47fd-a0d3-78d00480b12f';
 
@@ -22,10 +31,18 @@ describe('UsersService', () => {
     jest.clearAllMocks();
     repository = {
       create: jest.fn(),
+      createQueryBuilder: jest.fn(),
       find: jest.fn(),
       findOne: jest.fn(),
       save: jest.fn(),
     };
+    queryBuilder = {
+      addSelect: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn(),
+      where: jest.fn().mockReturnThis(),
+    };
+    repository.createQueryBuilder.mockReturnValue(queryBuilder as never);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -93,5 +110,30 @@ describe('UsersService', () => {
       deletedBy: null,
     });
     expect(user.deletedAt).toBeInstanceOf(Date);
+  });
+
+  it('finds an active user by username and includes the password', async () => {
+    const user = {
+      id: userId,
+      username: 'alice',
+      email: 'alice@example.com',
+      password: 'hashed-password',
+      isDeleted: false,
+    } as User;
+    queryBuilder.getOne.mockResolvedValue(user);
+
+    const result = await service.findByUsernameWithPassword('alice');
+
+    expect(repository.createQueryBuilder).toHaveBeenCalledWith('user');
+    expect(queryBuilder.addSelect).toHaveBeenCalledWith('user.password');
+    expect(queryBuilder.where).toHaveBeenCalledWith(
+      'user.isDeleted = :isDeleted',
+      { isDeleted: false },
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      'user.username = :username',
+      { username: 'alice' },
+    );
+    expect(result).toBe(user);
   });
 });

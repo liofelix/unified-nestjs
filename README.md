@@ -33,8 +33,25 @@ pnpm install
 | `DB_PASSWORD` | PostgreSQL 密码 | 是 |
 | `DB_DATABASE` | 应用连接的数据库名称 | 是 |
 | `DB_NAME` | 预留字段 | 否 |
+| `JWT_SECRET` | JWT 签名密钥 | 是 |
+| `JWT_EXPIRES_IN` | JWT 过期时间，未设置时默认为 `1h` | 否 |
+| `JWT_REFRESH_EXPIRES_IN` | refresh token 过期时间，未设置时默认为 `7d` | 否 |
 
 数据库连接由 TypeORM 在应用启动时建立：开发环境开启 `synchronize`，会自动创建或同步表结构；生产环境关闭 `synchronize`，不会自动创建或修改表结构。
+
+## 统一响应格式
+
+接口成功和失败响应都会统一封装为 `code`、`data`、`msg`：
+
+```json
+{
+  "code": 200,
+  "data": {},
+  "msg": "success"
+}
+```
+
+`code` 与 HTTP 状态码一致。失败时 `data` 为 `null`，`msg` 为错误信息。
 
 ## 用户接口
 
@@ -46,7 +63,16 @@ pnpm install
 | `GET` | `/users` | 查询未删除用户。 |
 | `GET` | `/users/:id` | 查询单个未删除用户。 |
 | `PATCH` | `/users/:id` | 更新用户名或邮箱。 |
-| `DELETE` | `/users/:id` | 软删除用户，记录删除时间。 |
+| `DELETE` | `/users/:id` | 软删除用户，记录删除时间，成功时返回 `code: 200`。 |
+
+## 认证接口
+
+认证模块使用 Passport 和 JWT。登录字段为 `username` 和 `password`。登出采用无状态 JWT 语义，服务端只返回成功响应，客户端负责删除本地 token。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/auth/login` | 登录，传入 `username`、`password`，成功时 `data` 返回 `accessToken`、`refreshToken` 和用户信息。 |
+| `POST` | `/auth/logout` | 退出登录，不撤销服务端 token。 |
 
 ## 运行
 

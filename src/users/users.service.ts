@@ -69,6 +69,15 @@ export class UsersService {
     await this.usersRepository.save(user);
   }
 
+  findByUsernameWithPassword(username: string): Promise<User | null> {
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.isDeleted = :isDeleted', { isDeleted: false })
+      .andWhere('user.username = :username', { username })
+      .getOne();
+  }
+
   private async findActiveUser(id: string): Promise<User> {
     const user = await this.usersRepository.findOne({
       where: { id, isDeleted: false },
