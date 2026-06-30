@@ -12,16 +12,17 @@ import type { ApiResponse } from '../interceptors/response.interceptor';
 export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
-    const status =
+    const statusCode =
       exception instanceof HttpException
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
-
-    response.status(status).json({
-      code: status,
+    const responseBody: ApiResponse<null> = {
+      code: statusCode,
       data: null,
       msg: this.getMessage(exception),
-    } satisfies ApiResponse<null>);
+    };
+
+    response.status(statusCode).json(responseBody);
   }
 
   private getMessage(exception: unknown): string {
@@ -29,28 +30,23 @@ export class HttpExceptionFilter implements ExceptionFilter {
       return 'Internal server error';
     }
 
-    const exceptionResponse = exception.getResponse();
+    const exceptionBody = exception.getResponse();
 
-    if (typeof exceptionResponse === 'string') {
-      return exceptionResponse;
+    if (typeof exceptionBody === 'string') {
+      return exceptionBody;
     }
 
-    if (
-      typeof exceptionResponse === 'object' &&
-      exceptionResponse !== null &&
-      'message' in exceptionResponse
-    ) {
-      const message = (exceptionResponse as { message?: unknown }).message;
+    const message =
+      typeof exceptionBody === 'object' &&
+      exceptionBody !== null &&
+      'message' in exceptionBody
+        ? (exceptionBody as { message?: unknown }).message
+        : exception.message;
 
-      if (Array.isArray(message)) {
-        return message.join('; ');
-      }
-
-      if (typeof message === 'string') {
-        return message;
-      }
+    if (Array.isArray(message)) {
+      return message.join('; ');
     }
 
-    return exception.message;
+    return typeof message === 'string' ? message : exception.message;
   }
 }

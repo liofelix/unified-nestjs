@@ -1,12 +1,10 @@
 import { UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
 import { AuthService, INVALID_CREDENTIALS_MESSAGE } from './auth.service';
-import { JwtTokenType } from './auth.types';
 
 jest.mock('bcrypt', () => ({
   compare: jest.fn(),
@@ -18,7 +16,6 @@ describe('AuthService', () => {
     Pick<UsersService, 'findByUsernameWithPassword'>
   >;
   let jwtService: jest.Mocked<Pick<JwtService, 'sign'>>;
-  let configService: jest.Mocked<Pick<ConfigService, 'get'>>;
 
   const user = {
     id: 'e0716b8b-d8d7-47fd-a0d3-78d00480b12f',
@@ -33,23 +30,13 @@ describe('AuthService', () => {
     updatedAt: new Date(),
   } as User;
 
-  const expectTokensSigned = () => {
-    expect(jwtService.sign).toHaveBeenNthCalledWith(1, {
+  const expectAccessTokenSigned = () => {
+    expect(jwtService.sign).toHaveBeenCalledWith({
       sub: user.id,
       username: user.username,
       email: user.email,
-      type: JwtTokenType.ACCESS,
+      type: 'access',
     });
-    expect(jwtService.sign).toHaveBeenNthCalledWith(
-      2,
-      {
-        sub: user.id,
-        username: user.username,
-        email: user.email,
-        type: JwtTokenType.REFRESH,
-      },
-      { expiresIn: '7d' },
-    );
   };
 
   beforeEach(async () => {
@@ -59,9 +46,6 @@ describe('AuthService', () => {
     };
     jwtService = {
       sign: jest.fn(),
-    };
-    configService = {
-      get: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -75,10 +59,6 @@ describe('AuthService', () => {
           provide: JwtService,
           useValue: jwtService,
         },
-        {
-          provide: ConfigService,
-          useValue: configService,
-        },
       ],
     }).compile();
 
@@ -89,17 +69,14 @@ describe('AuthService', () => {
     expect(service).toBeDefined();
   });
 
-  it('logs in with username and returns access and refresh tokens', async () => {
+  it('logs in with username and returns an access token', async () => {
     const userWithPassword: User = {
       ...user,
       password: 'hashed-password',
     };
     usersService.findByUsernameWithPassword.mockResolvedValue(userWithPassword);
     (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-    configService.get.mockReturnValue('7d');
-    jwtService.sign
-      .mockReturnValueOnce('access-token')
-      .mockReturnValueOnce('refresh-token');
+    jwtService.sign.mockReturnValue('access-token');
 
     const result = await service.login({
       username: 'alice',
@@ -113,13 +90,10 @@ describe('AuthService', () => {
       'plain-password',
       'hashed-password',
     );
-    expectTokensSigned();
+    expectAccessTokenSigned();
     expect(result).toEqual({
       accessToken: 'access-token',
-      refreshToken: 'refresh-token',
-      user,
     });
-    expect(result.user).not.toHaveProperty('password');
   });
 
   it('throws unauthorized when the user does not exist', async () => {

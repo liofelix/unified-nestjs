@@ -13,18 +13,16 @@ describe('AppController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect({
-        code: 200,
-        data: 'Hello World!',
-        msg: 'success',
-      });
+  it('/api (GET)', () => {
+    return request(app.getHttpServer()).get('/api').expect(200).expect({
+      code: 200,
+      data: 'Unified NestJS',
+      msg: 'success',
+    });
   });
 
   afterEach(async () => {

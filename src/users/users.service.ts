@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
@@ -29,8 +29,8 @@ export class UsersService {
     try {
       const savedUser = await this.usersRepository.save(user);
       return this.findOne(savedUser.id);
-    } catch (error) {
-      this.throwUniqueConstraintError(error);
+    } catch {
+      throw new ConflictException('用户名或邮箱已存在');
     }
   }
 
@@ -43,27 +43,35 @@ export class UsersService {
     return users;
   }
 
-  findOne(id: string): Promise<UserResponse> {
-    return this.findActiveUser(id);
+  async findOne(id: string): Promise<UserResponse> {
+    const user = await this.usersRepository.findOne({
+      where: { id, isDeleted: false },
+    });
+
+    if (!user) {
+      throw new NotFoundException('用户不存在或已删除');
+    }
+
+    return user;
   }
 
   async update(
     id: string,
     updateUserDto: UpdateUserDto,
   ): Promise<UserResponse> {
-    const user = await this.findActiveUser(id);
+    const user = await this.findOne(id);
     Object.assign(user, updateUserDto);
 
     try {
       const savedUser = await this.usersRepository.save(user);
       return this.findOne(savedUser.id);
-    } catch (error) {
-      this.throwUniqueConstraintError(error);
+    } catch {
+      throw new ConflictException('用户名或邮箱已存在');
     }
   }
 
   async remove(id: string): Promise<void> {
-    const user = await this.findActiveUser(id);
+    const user = await this.findOne(id);
     user.isDeleted = true;
     user.deletedAt = new Date();
     await this.usersRepository.save(user);
@@ -76,29 +84,5 @@ export class UsersService {
       .where('user.isDeleted = :isDeleted', { isDeleted: false })
       .andWhere('user.username = :username', { username })
       .getOne();
-  }
-
-  private async findActiveUser(id: string): Promise<User> {
-    const user = await this.usersRepository.findOne({
-      where: { id, isDeleted: false },
-    });
-
-    if (!user) {
-      throw new NotFoundException('用户不存在或已删除');
-    }
-
-    return user;
-  }
-
-  private throwUniqueConstraintError(error: unknown): never {
-    if (
-      error instanceof QueryFailedError &&
-      (error as { driverError?: { code?: string } }).driverError?.code ===
-        '23505'
-    ) {
-      throw new ConflictException('用户名或邮箱已存在');
-    }
-
-    throw error;
   }
 }

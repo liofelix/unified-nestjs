@@ -27,6 +27,11 @@ pnpm install
 
 | 变量 | 说明 | 是否使用 |
 | --- | --- | --- |
+| `APP_NAME` | 应用名称，开发环境默认为 `Unified NestJS` | 否 |
+| `APP_PORT` | HTTP 服务端口，开发环境默认为 `3000` | 否 |
+| `APP_API_PREFIX` | 全局接口前缀，开发环境默认为 `api` | 否 |
+| `APP_SWAGGER_PATH` | Swagger 文档路径，开发环境默认为 `api/docs` | 否 |
+| `APP_SWAGGER_VERSION` | Swagger 文档版本，开发环境默认为 `1.0` | 否 |
 | `DB_HOST` | PostgreSQL 主机地址 | 是 |
 | `DB_PORT` | PostgreSQL 端口 | 是 |
 | `DB_USER` | PostgreSQL 用户名 | 是 |
@@ -35,7 +40,6 @@ pnpm install
 | `DB_NAME` | 预留字段 | 否 |
 | `JWT_SECRET` | JWT 签名密钥 | 是 |
 | `JWT_EXPIRES_IN` | JWT 过期时间，未设置时默认为 `1h` | 否 |
-| `JWT_REFRESH_EXPIRES_IN` | refresh token 过期时间，未设置时默认为 `7d` | 否 |
 
 数据库连接由 TypeORM 在应用启动时建立：开发环境开启 `synchronize`，会自动创建或同步表结构；生产环境关闭 `synchronize`，不会自动创建或修改表结构。
 
@@ -59,11 +63,11 @@ pnpm install
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `POST` | `/users` | 创建用户，传入 `username`、`email`、`password`。 |
-| `GET` | `/users` | 查询未删除用户。 |
-| `GET` | `/users/:id` | 查询单个未删除用户。 |
-| `PATCH` | `/users/:id` | 更新用户名或邮箱。 |
-| `DELETE` | `/users/:id` | 软删除用户，记录删除时间，成功时返回 `code: 200`。 |
+| `POST` | `/api/users` | 创建用户，传入 `username`、`email`、`password`。 |
+| `GET` | `/api/users` | 查询未删除用户。 |
+| `GET` | `/api/users/:id` | 查询单个未删除用户。 |
+| `PATCH` | `/api/users/:id` | 更新用户名或邮箱。 |
+| `DELETE` | `/api/users/:id` | 软删除用户，记录删除时间，成功时返回 `code: 200`。 |
 
 ## 认证接口
 
@@ -71,8 +75,8 @@ pnpm install
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `POST` | `/auth/login` | 登录，传入 `username`、`password`，成功时 `data` 返回 `accessToken`、`refreshToken` 和用户信息。 |
-| `POST` | `/auth/logout` | 退出登录，不撤销服务端 token。 |
+| `POST` | `/api/auth/login` | 登录，传入 `username`、`password`，成功时 `data` 返回 `accessToken`。 |
+| `POST` | `/api/auth/logout` | 退出登录，不撤销服务端 token。 |
 
 ## 运行
 
@@ -90,7 +94,7 @@ pnpm run build
 pnpm run start:prod
 ```
 
-默认 HTTP 端口为 `3000`，可通过 `PORT` 环境变量覆盖。
+HTTP 服务端口通过 `APP_PORT` 环境变量配置，开发环境默认为 `3000`。所有接口统一使用 `APP_API_PREFIX` 配置的前缀，开发环境默认为 `/api`，例如根接口为 `/api`。
 
 ## 测试与检查
 

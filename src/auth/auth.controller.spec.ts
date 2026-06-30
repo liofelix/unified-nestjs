@@ -1,17 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { User } from '../users/entities/user.entity';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
   let service: jest.Mocked<Pick<AuthService, 'login' | 'logout'>>;
-
-  const user = {
-    id: 'e0716b8b-d8d7-47fd-a0d3-78d00480b12f',
-    username: 'alice',
-    email: 'alice@example.com',
-  } as User;
 
   beforeEach(async () => {
     service = {
@@ -43,8 +36,6 @@ describe('AuthController', () => {
     };
     const response = {
       accessToken: 'access-token',
-      refreshToken: 'refresh-token',
-      user,
     };
     service.login.mockResolvedValue(response);
 

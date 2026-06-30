@@ -21,13 +21,13 @@ export class ResponseInterceptor<T> implements NestInterceptor<
     context: ExecutionContext,
     next: CallHandler<T>,
   ): Observable<ApiResponse<T>> {
-    const response = context
+    const httpResponse = context
       .switchToHttp()
       .getResponse<{ statusCode: number }>();
 
     return next.handle().pipe(
       map((data) => ({
-        code: response.statusCode,
+        code: httpResponse.statusCode,
         data: data ?? null,
         msg: 'success',
       })),
