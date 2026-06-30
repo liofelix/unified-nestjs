@@ -108,6 +108,9 @@ pnpm run test:e2e
 # 覆盖率
 pnpm run test:cov
 
-# ESLint
-pnpm exec eslint 'src/**/*.ts'
+# Oxlint
+pnpm run lint
+
+# 格式检查
+pnpm run format:check
 ```

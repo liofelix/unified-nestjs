@@ -1,5 +1,5 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { INestApplication, ValidationPipe } from "@nestjs/common";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 
 export interface StartupConfig {
   appName: string;
@@ -11,18 +11,15 @@ export interface StartupConfig {
 
 export function getStartupConfig(): StartupConfig {
   return {
-    appName: process.env.APP_NAME ?? 'Unified NestJS',
-    appPort: process.env.APP_PORT ?? '3000',
-    appApiPrefix: process.env.APP_API_PREFIX ?? 'api',
-    appSwaggerPath: process.env.APP_SWAGGER_PATH ?? 'api/docs',
-    appSwaggerVersion: process.env.APP_SWAGGER_VERSION ?? '1.0',
+    appName: process.env.APP_NAME ?? "Unified NestJS",
+    appPort: process.env.APP_PORT ?? "3000",
+    appApiPrefix: process.env.APP_API_PREFIX ?? "api",
+    appSwaggerPath: process.env.APP_SWAGGER_PATH ?? "api/docs",
+    appSwaggerVersion: process.env.APP_SWAGGER_VERSION ?? "1.0",
   };
 }
 
-export function setAppConfig(
-  app: INestApplication,
-  appApiPrefix: string,
-): void {
+export function setAppConfig(app: INestApplication, appApiPrefix: string): void {
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -33,10 +30,7 @@ export function setAppConfig(
   app.setGlobalPrefix(appApiPrefix);
 }
 
-export function setSwaggerConfig(
-  app: INestApplication,
-  config: StartupConfig,
-): void {
+export function setSwaggerConfig(app: INestApplication, config: StartupConfig): void {
   const swaggerConfig = new DocumentBuilder()
     .setTitle(config.appName)
     .setVersion(config.appSwaggerVersion)

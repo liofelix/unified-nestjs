@@ -1,23 +1,23 @@
-import { UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { JwtPayload } from '../auth.types';
-import { JwtStrategy } from './jwt.strategy';
+import { UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { JwtPayload } from "../auth.types";
+import { JwtStrategy } from "./jwt.strategy";
 
-describe('JwtStrategy', () => {
+describe("JwtStrategy", () => {
   let strategy: JwtStrategy;
 
   beforeEach(() => {
     strategy = new JwtStrategy({
-      getOrThrow: jest.fn().mockReturnValue('jwt-secret'),
+      getOrThrow: jest.fn().mockReturnValue("jwt-secret"),
     } as unknown as ConfigService);
   });
 
-  it('returns the authenticated user for access tokens', () => {
+  it("returns the authenticated user for access tokens", () => {
     const payload: JwtPayload = {
-      sub: 'e0716b8b-d8d7-47fd-a0d3-78d00480b12f',
-      username: 'alice',
-      email: 'alice@example.com',
-      type: 'access',
+      sub: "e0716b8b-d8d7-47fd-a0d3-78d00480b12f",
+      username: "alice",
+      email: "alice@example.com",
+      type: "access",
     };
 
     expect(strategy.validate(payload)).toEqual({
@@ -27,16 +27,14 @@ describe('JwtStrategy', () => {
     });
   });
 
-  it('rejects non-access tokens', () => {
+  it("rejects non-access tokens", () => {
     const payload: JwtPayload = {
-      sub: 'e0716b8b-d8d7-47fd-a0d3-78d00480b12f',
-      username: 'alice',
-      email: 'alice@example.com',
-      type: 'refresh',
+      sub: "e0716b8b-d8d7-47fd-a0d3-78d00480b12f",
+      username: "alice",
+      email: "alice@example.com",
+      type: "refresh",
     };
 
-    expect(() => strategy.validate(payload)).toThrow(
-      new UnauthorizedException('无效的访问令牌'),
-    );
+    expect(() => strategy.validate(payload)).toThrow(new UnauthorizedException("无效的访问令牌"));
   });
 });

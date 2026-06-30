@@ -1,8 +1,8 @@
-import { CallHandler, ExecutionContext } from '@nestjs/common';
-import { lastValueFrom, of } from 'rxjs';
-import { ResponseInterceptor } from './response.interceptor';
+import { CallHandler, ExecutionContext } from "@nestjs/common";
+import { lastValueFrom, of } from "rxjs";
+import { ResponseInterceptor } from "./response.interceptor";
 
-describe('ResponseInterceptor', () => {
+describe("ResponseInterceptor", () => {
   let interceptor: ResponseInterceptor<unknown>;
   let context: ExecutionContext;
 
@@ -15,31 +15,27 @@ describe('ResponseInterceptor', () => {
     } as unknown as ExecutionContext;
   });
 
-  it('wraps successful responses', async () => {
+  it("wraps successful responses", async () => {
     const next = {
-      handle: jest.fn().mockReturnValue(of({ id: 'user-id' })),
+      handle: jest.fn().mockReturnValue(of({ id: "user-id" })),
     } as unknown as CallHandler;
 
-    await expect(
-      lastValueFrom(interceptor.intercept(context, next)),
-    ).resolves.toEqual({
+    await expect(lastValueFrom(interceptor.intercept(context, next))).resolves.toEqual({
       code: 200,
-      data: { id: 'user-id' },
-      msg: 'success',
+      data: { id: "user-id" },
+      msg: "success",
     });
   });
 
-  it('converts undefined data to null', async () => {
+  it("converts undefined data to null", async () => {
     const next = {
       handle: jest.fn().mockReturnValue(of(undefined)),
     } as unknown as CallHandler;
 
-    await expect(
-      lastValueFrom(interceptor.intercept(context, next)),
-    ).resolves.toEqual({
+    await expect(lastValueFrom(interceptor.intercept(context, next))).resolves.toEqual({
       code: 200,
       data: null,
-      msg: 'success',
+      msg: "success",
     });
   });
 });

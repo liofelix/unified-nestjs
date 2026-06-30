@@ -1,10 +1,6 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import {
-  getStartupConfig,
-  setAppConfig,
-  setSwaggerConfig,
-} from './common/utils/startup.util';
+import { NestFactory } from "@nestjs/core";
+import { AppModule } from "./app.module";
+import { getStartupConfig, setAppConfig, setSwaggerConfig } from "./common/utils/startup.util";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);

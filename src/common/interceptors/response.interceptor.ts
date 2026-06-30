@@ -1,10 +1,5 @@
-import {
-  CallHandler,
-  ExecutionContext,
-  Injectable,
-  NestInterceptor,
-} from '@nestjs/common';
-import { map, Observable } from 'rxjs';
+import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from "@nestjs/common";
+import { map, Observable } from "rxjs";
 
 export interface ApiResponse<T> {
   code: number;
@@ -13,23 +8,15 @@ export interface ApiResponse<T> {
 }
 
 @Injectable()
-export class ResponseInterceptor<T> implements NestInterceptor<
-  T,
-  ApiResponse<T>
-> {
-  intercept(
-    context: ExecutionContext,
-    next: CallHandler<T>,
-  ): Observable<ApiResponse<T>> {
-    const httpResponse = context
-      .switchToHttp()
-      .getResponse<{ statusCode: number }>();
+export class ResponseInterceptor<T> implements NestInterceptor<T, ApiResponse<T>> {
+  intercept(context: ExecutionContext, next: CallHandler<T>): Observable<ApiResponse<T>> {
+    const httpResponse = context.switchToHttp().getResponse<{ statusCode: number }>();
 
     return next.handle().pipe(
       map((data) => ({
         code: httpResponse.statusCode,
         data: data ?? null,
-        msg: 'success',
+        msg: "success",
       })),
     );
   }
