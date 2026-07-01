@@ -25,6 +25,10 @@ describe("AppController (e2e)", () => {
     });
   });
 
+  it("/api/users (GET) rejects requests without jwt token", () => {
+    return request(app.getHttpServer()).get("/api/users").expect(401);
+  });
+
   afterEach(async () => {
     if (app) {
       await app.close();

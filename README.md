@@ -61,17 +61,25 @@ pnpm install
 
 用户表使用 UUID 主键，密码仅保存 bcrypt 哈希且不会出现在响应中。当前未接入认证上下文，创建人、更新人和删除人字段会保留为空。
 
+用户管理接口默认需要 JWT。调用时需在请求头传入登录接口返回的 token：
+
+```http
+Authorization: Bearer <accessToken>
+```
+
+在 Swagger 的 Authorize 弹窗中只填写登录返回的 `accessToken` 值，不需要手动加 `Bearer ` 前缀。
+
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `POST` | `/api/users` | 创建用户，传入 `username`、`email`、`password`。 |
-| `GET` | `/api/users` | 查询未删除用户。 |
-| `GET` | `/api/users/:id` | 查询单个未删除用户。 |
-| `PATCH` | `/api/users/:id` | 更新用户名或邮箱。 |
-| `DELETE` | `/api/users/:id` | 软删除用户，记录删除时间，成功时返回 `code: 200`。 |
+| `POST` | `/api/users` | 需认证。创建用户，传入 `username`、`email`、`password`。 |
+| `GET` | `/api/users` | 需认证。查询未删除用户。 |
+| `GET` | `/api/users/:id` | 需认证。查询单个未删除用户。 |
+| `PATCH` | `/api/users/:id` | 需认证。更新用户名或邮箱。 |
+| `DELETE` | `/api/users/:id` | 需认证。软删除用户，记录删除时间，成功时返回 `code: 200`。 |
 
 ## 认证接口
 
-认证模块使用 Passport 和 JWT。登录字段为 `username` 和 `password`。登出采用无状态 JWT 语义，服务端只返回成功响应，客户端负责删除本地 token。
+认证模块使用 Passport 和 JWT。除认证接口和明确标记公开的接口外，业务接口默认需要 `Authorization: Bearer <token>`。登录字段为 `username` 和 `password`。登出采用无状态 JWT 语义，服务端只返回成功响应，客户端负责删除本地 token。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |

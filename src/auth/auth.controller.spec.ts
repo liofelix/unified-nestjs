@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { IS_PUBLIC_KEY } from "./decorators/public.decorator";
 
 describe("AuthController", () => {
   let controller: AuthController;
@@ -27,6 +28,10 @@ describe("AuthController", () => {
 
   it("should be defined", () => {
     expect(controller).toBeDefined();
+  });
+
+  it("is marked as public", () => {
+    expect(Reflect.getMetadata(IS_PUBLIC_KEY, AuthController)).toBe(true);
   });
 
   it("logs in through the auth service", async () => {

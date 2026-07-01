@@ -34,6 +34,7 @@ export function setSwaggerConfig(app: INestApplication, config: StartupConfig): 
   const swaggerConfig = new DocumentBuilder()
     .setTitle(config.appName)
     .setVersion(config.appSwaggerVersion)
+    .addBearerAuth()
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
 
