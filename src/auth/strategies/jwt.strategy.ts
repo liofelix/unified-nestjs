@@ -2,14 +2,14 @@ import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
-import { AuthTokenService } from "../auth-token.service";
+import { AuthRevocationService } from "../auth.revocation.service";
 import { JwtAuthenticatedUser, JwtPayload } from "../auth.types";
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     configService: ConfigService,
-    private readonly authTokenService: AuthTokenService,
+    private readonly authRevocationService: AuthRevocationService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -23,7 +23,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException("无效的访问令牌");
     }
 
-    if (await this.authTokenService.isRevoked(payload.jti)) {
+    if (await this.authRevocationService.isRevoked(payload.jti)) {
       throw new UnauthorizedException("访问令牌已失效");
     }
 

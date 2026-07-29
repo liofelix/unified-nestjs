@@ -3,7 +3,7 @@ import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 import { randomUUID } from "node:crypto";
 import { UsersService } from "../users/users.service";
-import { AuthTokenService } from "./auth-token.service";
+import { AuthRevocationService } from "./auth.revocation.service";
 import { LoginDto } from "./dto/login.dto";
 import { AuthResponse, JwtAuthenticatedUser } from "./auth.types";
 
@@ -14,7 +14,7 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
-    private readonly authTokenService: AuthTokenService,
+    private readonly authRevocationService: AuthRevocationService,
   ) {}
 
   async login(loginDto: LoginDto): Promise<AuthResponse> {
@@ -38,7 +38,7 @@ export class AuthService {
   }
 
   async logout(user: JwtAuthenticatedUser): Promise<null> {
-    await this.authTokenService.revoke(user.tokenId, user.expiresAt);
+    await this.authRevocationService.revoke(user.tokenId, user.expiresAt);
     return null;
   }
 }
