@@ -7,10 +7,14 @@ export interface JwtPayload {
   username: string;
   email: string;
   type: string;
+  jti: string;
+  exp: number;
 }
 
 export interface JwtAuthenticatedUser {
   id: string;
   username: string;
   email: string;
+  tokenId: string;
+  expiresAt: number;
 }

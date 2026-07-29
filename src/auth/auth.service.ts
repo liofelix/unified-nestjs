@@ -1,9 +1,11 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
-import { LoginDto } from "./dto/login.dto";
-import { AuthResponse } from "./auth.types";
+import { randomUUID } from "node:crypto";
 import { UsersService } from "../users/users.service";
+import { AuthTokenService } from "./auth-token.service";
+import { LoginDto } from "./dto/login.dto";
+import { AuthResponse, JwtAuthenticatedUser } from "./auth.types";
 
 export const INVALID_CREDENTIALS_MESSAGE = "用户名或密码错误";
 
@@ -12,6 +14,7 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly authTokenService: AuthTokenService,
   ) {}
 
   async login(loginDto: LoginDto): Promise<AuthResponse> {
@@ -22,16 +25,20 @@ export class AuthService {
     }
 
     return {
-      accessToken: this.jwtService.sign({
-        sub: user.id,
-        username: user.username,
-        email: user.email,
-        type: "access",
-      }),
+      accessToken: this.jwtService.sign(
+        {
+          sub: user.id,
+          username: user.username,
+          email: user.email,
+          type: "access",
+        },
+        { jwtid: randomUUID() },
+      ),
     };
   }
 
-  logout(): null {
+  async logout(user: JwtAuthenticatedUser): Promise<null> {
+    await this.authTokenService.revoke(user.tokenId, user.expiresAt);
     return null;
   }
 }

@@ -7,6 +7,7 @@
 - Node.js
 - pnpm
 - PostgreSQL
+- Redis
 
 ## 安装依赖
 
@@ -40,6 +41,7 @@ pnpm install
 | `DB_NAME` | 预留字段 | 否 |
 | `JWT_SECRET` | JWT 签名密钥 | 是 |
 | `JWT_EXPIRES_IN` | JWT 过期时间，未设置时默认为 `1h` | 否 |
+| `REDIS_URL` | Redis 连接地址，支持 `redis://` 和 `rediss://` | 是 |
 
 数据库连接由 TypeORM 在应用启动时建立：开发环境开启 `synchronize`，会自动创建或同步表结构；生产环境关闭 `synchronize`，不会自动创建或修改表结构。
 
@@ -79,12 +81,12 @@ Authorization: Bearer <accessToken>
 
 ## 认证接口
 
-认证模块使用 Passport 和 JWT。除认证接口和明确标记公开的接口外，业务接口默认需要 `Authorization: Bearer <token>`。登录字段为 `username` 和 `password`。登出采用无状态 JWT 语义，服务端只返回成功响应，客户端负责删除本地 token。
+认证模块使用 Passport 和 JWT。除登录接口和明确标记公开的接口外，业务接口默认需要 `Authorization: Bearer <token>`。登录字段为 `username` 和 `password`。每个 JWT 都有唯一标识，登出时会将当前 token 加入 Redis 撤销列表，直至 token 自然过期。Redis 不可用时，受保护接口会返回 `503`。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `POST` | `/api/auth/login` | 登录，传入 `username`、`password`，成功时 `data` 返回 `accessToken`。 |
-| `POST` | `/api/auth/logout` | 退出登录，不撤销服务端 token。 |
+| `POST` | `/api/auth/logout` | 需认证。撤销当前 token。 |
 
 ## 运行
 
@@ -104,18 +106,9 @@ pnpm run start:prod
 
 HTTP 服务端口通过 `APP_PORT` 环境变量配置，开发环境默认为 `3000`。所有接口统一使用 `APP_API_PREFIX` 配置的前缀，开发环境默认为 `/api`，例如根接口为 `/api`。
 
-## 测试与检查
+## 检查
 
 ```bash
-# 单元测试
-pnpm run test
-
-# 端到端测试
-pnpm run test:e2e
-
-# 覆盖率
-pnpm run test:cov
-
 # Oxlint
 pnpm run lint
 
