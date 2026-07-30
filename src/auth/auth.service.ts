@@ -37,8 +37,7 @@ export class AuthService {
     };
   }
 
-  async logout(user: JwtAuthenticatedUser): Promise<null> {
+  async logout(user: JwtAuthenticatedUser): Promise<void> {
     await this.authRevocationService.revoke(user.tokenId, user.expiresAt);
-    return null;
   }
 }

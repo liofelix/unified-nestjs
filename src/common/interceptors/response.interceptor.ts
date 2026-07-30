@@ -1,4 +1,5 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from "@nestjs/common";
+import { SSE_METADATA } from "@nestjs/common/constants";
 import { map, Observable } from "rxjs";
 
 export interface ApiResponse<T> {
@@ -8,16 +9,22 @@ export interface ApiResponse<T> {
 }
 
 @Injectable()
-export class ResponseInterceptor<T> implements NestInterceptor<T, ApiResponse<T>> {
-  intercept(context: ExecutionContext, next: CallHandler<T>): Observable<ApiResponse<T>> {
+export class ResponseInterceptor implements NestInterceptor {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    if (Reflect.getMetadata(SSE_METADATA, context.getHandler())) {
+      return next.handle();
+    }
+
     const httpResponse = context.switchToHttp().getResponse<{ statusCode: number }>();
 
     return next.handle().pipe(
-      map((data) => ({
-        code: httpResponse.statusCode,
-        data: data ?? null,
-        msg: "success",
-      })),
+      map(
+        (data): ApiResponse<unknown> => ({
+          code: httpResponse.statusCode,
+          data: data ?? null,
+          msg: "success",
+        }),
+      ),
     );
   }
 }

@@ -24,6 +24,11 @@ async function bootstrap() {
     process.env.APP_SWAGGER_PATH ?? "api/docs",
     app,
     SwaggerModule.createDocument(app, swaggerConfig),
+    {
+      swaggerOptions: {
+        deepLinking: false,
+      },
+    },
   );
 
   await app.listen(process.env.APP_PORT ?? "3000");

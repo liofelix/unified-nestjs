@@ -1,6 +1,7 @@
 allowBuilds:
   '@scarf/scarf': false
   bcrypt: true
+  esbuild: true
   unrs-resolver: true
 minimumReleaseAgeExclude:
   - '@oxfmt/binding-android-arm-eabi@0.57.0'
