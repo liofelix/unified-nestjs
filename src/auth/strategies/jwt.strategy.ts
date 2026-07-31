@@ -9,6 +9,12 @@ import { ExtractJwt, Strategy } from "passport-jwt";
 import { AuthRevocationService } from "../auth.revocation.service";
 import { JwtAuthenticatedUser, JwtPayload } from "../auth.types";
 
+/** JWT 载荷字段非法时对外返回的统一错误消息。 */
+const INVALID_ACCESS_TOKEN_MESSAGE = "无效的访问令牌";
+
+/** 令牌已被撤销时对外返回的统一错误消息。 */
+const ACCESS_TOKEN_REVOKED_MESSAGE = "访问令牌已失效";
+
 /** 将合法 JWT 载荷转换为请求上下文中的认证用户。 */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -27,11 +33,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   /** 校验令牌业务字段及撤销状态，并返回最小用户上下文。 */
   async validate(payload: JwtPayload): Promise<JwtAuthenticatedUser> {
     if (payload.type !== "access" || !payload.jti || !payload.exp) {
-      throw new UnauthorizedException("无效的访问令牌");
+      throw new UnauthorizedException(INVALID_ACCESS_TOKEN_MESSAGE);
     }
 
     if (await this.authRevocationService.isRevoked(payload.jti)) {
-      throw new UnauthorizedException("访问令牌已失效");
+      throw new UnauthorizedException(ACCESS_TOKEN_REVOKED_MESSAGE);
     }
 
     return {

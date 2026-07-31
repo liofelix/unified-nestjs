@@ -22,7 +22,7 @@ export function containsSensitiveAgentOutput(output: string): boolean {
  * OpenAI Agents SDK 使用的输出 guardrail。
  * 将结果写入 outputInfo，命中时通过 tripwire 交给统一流式服务处理。
  */
-export const agentOutputSafetyGuardrail: OutputGuardrail = {
+export const AGENT_OUTPUT_SAFETY_GUARDRAIL: OutputGuardrail = {
   name: "agent_output_safety",
   async execute({ agentOutput }) {
     // 输出可能是字符串或 SDK 返回的结构化值，先统一转换为可匹配文本。

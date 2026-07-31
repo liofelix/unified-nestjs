@@ -8,6 +8,9 @@ import { Agent } from "@openai/agents";
 import { AgentsRunnerFactory } from "./agents-runner.factory";
 import { AgentStreamInput } from "./agents.types";
 
+/** 单次对话允许的最大工具或 Agent 调用轮数。 */
+const MAX_AGENT_TURNS = 6;
+
 /** 安全校验触发时对客户端隐藏底层细节的统一错误消息。 */
 const AGENT_GUARDRAIL_REJECTED_MESSAGE = "请求未通过 Agent 安全校验，请调整后重试。";
 
@@ -37,7 +40,7 @@ export class AgentsStreamingService {
       const stream = await this.agentsRunnerFactory
         .createRunner()
         .run(agent, this.toAgentInput(input), {
-          maxTurns: 6,
+          maxTurns: MAX_AGENT_TURNS,
           signal: input.signal,
           stream: true,
         });

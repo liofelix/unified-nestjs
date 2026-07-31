@@ -79,7 +79,7 @@ Authorization: Bearer <accessToken>
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `POST` | `/api/users` | 需认证。创建用户，传入 `username`、`email`、`password`。 |
-| `GET` | `/api/users` | 需认证。查询未删除用户。 |
+| `GET` | `/api/users?pageNo=1&pageSize=20` | 需认证。分页查询未删除用户，返回 `{ items, total, pageNo, pageSize }`。 |
 | `GET` | `/api/users/:id` | 需认证。查询单个未删除用户。 |
 | `PATCH` | `/api/users/:id` | 需认证。更新用户名或邮箱。 |
 | `DELETE` | `/api/users/:id` | 需认证。软删除用户，记录删除时间，成功时返回 `code: 200`。 |
@@ -101,7 +101,7 @@ Authorization: Bearer <accessToken>
 | --- | --- | --- |
 | `GET` | `/api/agents` | 获取当前可用 Agent 的代码、名称和描述。 |
 | `POST` | `/api/chat/conversations` | 创建会话，传入 `agentCode`，可选 `projectId`、`title`。 |
-| `GET` | `/api/chat/conversations?page=1&pageSize=20` | 分页查询自己的未删除会话；可选 `projectId`、`agentCode` 筛选。 |
+| `GET` | `/api/chat/conversations?pageNo=1&pageSize=20` | 分页查询自己的未删除会话；可选 `projectId`、`agentCode` 筛选。 |
 | `GET` | `/api/chat/conversations/:id` | 查询会话详情。 |
 | `PATCH` | `/api/chat/conversations/:id` | 更新会话标题或项目空间；不可修改 `agentCode`。 |
 | `DELETE` | `/api/chat/conversations/:id` | 软删除会话及其消息的访问入口。 |

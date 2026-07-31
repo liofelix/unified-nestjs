@@ -3,12 +3,23 @@
  * 负责密码哈希、用户持久化、唯一性冲突映射和软删除查询。
  */
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { PaginationDto } from "../common/dto/pagination.dto";
+import { PaginationResult } from "../common/types/pagination-result";
 import * as bcrypt from "bcrypt";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { User } from "./entities/user.entity";
+
+/** 用户名或邮箱已被占用时对外返回的统一错误消息。 */
+const USER_ALREADY_EXISTS_MESSAGE = "用户名或邮箱已存在";
+
+/** 查询不到未删除用户时对外返回的统一错误消息。 */
+const USER_NOT_FOUND_MESSAGE = "用户不存在或已删除";
+
+/** 密码哈希计算使用的 bcrypt 成本因子。 */
+const BCRYPT_SALT_ROUNDS = 12;
 
 /** 对外返回的用户形状，不包含密码字段。 */
 export type UserResponse = Omit<User, "password">;
@@ -24,7 +35,7 @@ export class UsersService {
 
   /** 哈希密码后创建用户，并返回脱敏用户信息。 */
   async create(createUserDto: CreateUserDto): Promise<UserResponse> {
-    const password = await bcrypt.hash(createUserDto.password, 12);
+    const password = await bcrypt.hash(createUserDto.password, BCRYPT_SALT_ROUNDS);
     const user = this.usersRepository.create({
       ...createUserDto,
       password,
@@ -34,16 +45,20 @@ export class UsersService {
       const savedUser = await this.usersRepository.save(user);
       return this.findOne(savedUser.id);
     } catch {
-      throw new ConflictException("用户名或邮箱已存在");
+      throw new ConflictException(USER_ALREADY_EXISTS_MESSAGE);
     }
   }
 
-  /** 按创建时间倒序返回全部未删除用户。 */
-  async findAll(): Promise<UserResponse[]> {
-    return await this.usersRepository.find({
+  /** 按创建时间倒序分页返回未删除用户。 */
+  async findAll(query: PaginationDto): Promise<PaginationResult<UserResponse>> {
+    const [items, total] = await this.usersRepository.findAndCount({
       where: { isDeleted: false },
       order: { createdAt: "DESC" },
+      skip: (query.pageNo - 1) * query.pageSize,
+      take: query.pageSize,
     });
+
+    return { items, total, pageNo: query.pageNo, pageSize: query.pageSize };
   }
 
   /** 按 UUID 查询未删除用户，不存在时抛出 404。 */
@@ -53,7 +68,7 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new NotFoundException("用户不存在或已删除");
+      throw new NotFoundException(USER_NOT_FOUND_MESSAGE);
     }
 
     return user;
@@ -68,7 +83,7 @@ export class UsersService {
       const savedUser = await this.usersRepository.save(user);
       return this.findOne(savedUser.id);
     } catch {
-      throw new ConflictException("用户名或邮箱已存在");
+      throw new ConflictException(USER_ALREADY_EXISTS_MESSAGE);
     }
   }
 

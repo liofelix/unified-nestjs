@@ -14,7 +14,8 @@ import { SendMessageDto } from "./dto/send-message.dto";
 import { UpdateConversationDto } from "./dto/update-conversation.dto";
 import { ChatConversation } from "./entities/chat-conversation.entity";
 import { ChatMessage } from "./entities/chat-message.entity";
-import { ChatSseEvent, PaginatedResult } from "./chat.types";
+import { ChatSseEvent } from "./chat.types";
+import { PaginationResult } from "../common/types/pagination-result";
 
 /** 会话不存在或已软删除时的统一错误消息。 */
 const CONVERSATION_NOT_FOUND_MESSAGE = "对话不存在或已删除";
@@ -55,7 +56,7 @@ export class ChatService {
   async findAll(
     userId: string,
     query: ListConversationsDto,
-  ): Promise<PaginatedResult<ChatConversation>> {
+  ): Promise<PaginationResult<ChatConversation>> {
     const builder = this.conversationRepository
       .createQueryBuilder("conversation")
       .where("conversation.created_by = :userId", { userId })
@@ -71,11 +72,11 @@ export class ChatService {
 
     const [items, total] = await builder
       .orderBy("conversation.updated_at", "DESC")
-      .skip((query.page - 1) * query.pageSize)
+      .skip((query.pageNo - 1) * query.pageSize)
       .take(query.pageSize)
       .getManyAndCount();
 
-    return { items, total, page: query.page, pageSize: query.pageSize };
+    return { items, total, pageNo: query.pageNo, pageSize: query.pageSize };
   }
 
   /** 按会话 UUID 和创建者查询未删除会话，不存在时抛出 404。 */

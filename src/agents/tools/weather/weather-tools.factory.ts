@@ -9,6 +9,9 @@ import { z } from "zod";
 import { WeatherQueryDto } from "../../../weather/dto/weather-query.dto";
 import { WeatherService } from "../../../weather/weather.service";
 
+/** 天气工具单次执行的最长等待时间（毫秒）。 */
+const TOOL_TIMEOUT_MS = 10_000;
+
 /** 创建天气 Agent 可使用工具的 NestJS Provider。 */
 @Injectable()
 export class WeatherToolsFactory {
@@ -32,7 +35,7 @@ export class WeatherToolsFactory {
         execute: ({ city, countryCode }) =>
           this.weatherService.getCurrentWeather({ city, countryCode }),
         errorFunction: (_context, error) => this.toToolError(error),
-        timeoutMs: 10_000,
+        timeoutMs: TOOL_TIMEOUT_MS,
       }),
       // 通过 day 参数区分今天和明天，复用同一个领域查询接口。
       tool({
@@ -46,7 +49,7 @@ export class WeatherToolsFactory {
         execute: ({ city, countryCode, day }) =>
           this.weatherService.getDailyWeather({ city, countryCode } satisfies WeatherQueryDto, day),
         errorFunction: (_context, error) => this.toToolError(error),
-        timeoutMs: 10_000,
+        timeoutMs: TOOL_TIMEOUT_MS,
       }),
     ];
   }

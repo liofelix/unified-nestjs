@@ -16,6 +16,9 @@ export interface ApiResponse<T> {
   msg: string;
 }
 
+/** 成功响应的统一结果消息。 */
+const SUCCESS_MESSAGE = "success";
+
 /** 将普通控制器返回值包装为统一响应的全局拦截器。 */
 @Injectable()
 export class ResponseInterceptor implements NestInterceptor {
@@ -32,7 +35,7 @@ export class ResponseInterceptor implements NestInterceptor {
         (data): ApiResponse<unknown> => ({
           code: httpResponse.statusCode,
           data: data ?? null,
-          msg: "success",
+          msg: SUCCESS_MESSAGE,
         }),
       ),
     );

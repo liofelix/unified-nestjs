@@ -37,6 +37,64 @@
 - 禁止在源码或文档示例中硬编码 API Key、JWT 密钥、数据库密码和生产配置；通过现有环境变量读取配置。
 - 不创建、配置或使用 `.pnpm-store`；依赖只能安装到项目的 `node_modules` 目录。
 
+## 命名规范
+
+命名以本仓库现有实现为基线；修改既有代码时不主动重命名与当前任务无关的符号。
+
+### 文件与目录
+
+- 源文件使用小写 + 连字符命名，并追加职责后缀：`chat-message.entity.ts`、`weather-tools.factory.ts`、`jwt-auth.guard.ts`。
+- 常用后缀：`module`、`controller`、`service`、`entity`、`dto`、`guard`、`strategy`、`filter`、`interceptor`、`decorator`、`types`、`factory`、`registry`、`guardrail`。
+- 应用入口仅使用 `main.ts`；目录使用复数小写名词，如 `src/auth`、`src/users`、`src/common/dto`。
+- 反例：`ChatMessageEntity.ts`（PascalCase 文件名）、`utils.ts`（无职责后缀的泛化命名）。
+
+### 测试文件
+
+- 单元测试与 e2e 测试分别使用 `*.spec.ts` 与 `*.e2e-spec.ts`，与被测文件同名同目录：`chat.service.spec.ts`、`chat.e2e-spec.ts`。
+
+### 类
+
+- 类名使用 PascalCase，并携带职责后缀：`AuthService`、`ChatController`、`User`、`ChatMessage`。
+
+### 变量
+
+- 变量、函数参数与对象属性使用 camelCase：`conversationId`、`user`。
+- 布尔变量使用 `is`、`has`、`can`、`should` 前缀：`isPublic`、`hasError`。
+- 禁止单字符变量（循环索引 `i`、`j` 除外）与匈牙利命名（如 `strName`、`arrUsers`）。
+
+### 常量
+
+- 模块级与导出常量使用 UPPER_SNAKE_CASE：`MAX_AGENT_INPUT_LENGTH`、`IS_PUBLIC_KEY`。
+- 文案类常量统一以 `_MESSAGE` 结尾：`CONVERSATION_NOT_FOUND_MESSAGE`。
+- 不得在业务代码中散落魔法数字或魔法字符串；可复用的字面量应提取为常量。
+
+### 函数与方法
+
+- 函数与方法使用 camelCase 且以动词开头：`findByUsernameWithPassword`、`createConversation`、`sendMessage`。
+- 返回布尔值的方法使用 `is`、`has`、`can` 前缀：`hasPermission`。
+- 禁止使用下划线前缀（如 `_validate`）或动词后置（如 `validationPerform`）。
+
+### 类型、接口与枚举
+
+- 类型别名与接口使用 PascalCase 名词：`JwtAuthenticatedUser`、`AuthResponse`、`WeatherDay`。
+- 优先使用字符串字面量联合类型而非 `enum`；取值使用小写 snake_case 并与外部契约（环境变量、API 值）保持一致：`"user" | "assistant"`、`"chat_completions" | "responses"`。
+- 若确需 `enum`，枚举名使用 PascalCase，成员使用 UPPER_SNAKE_CASE。
+
+### DTO 与 Entity
+
+- DTO 类使用 PascalCase 并追加 `Dto` 后缀：`CreateUserDto`、`LoginDto`。
+- Entity 类名使用单数名词（`ChatMessage`），属性使用 camelCase，数据库列名通过 `@Column({ name: "..." })` 显式映射为 snake_case。
+
+### 数据库
+
+- 表名使用 snake_case 复数：`chat_messages`、`users`。
+- 列名使用 snake_case；审计字段固定为 `created_at`、`updated_at`、`created_by`、`updated_by`、`deleted_at`。
+- 索引名遵循 `IDX_<表名>_<字段列表>`：`IDX_chat_messages_conversation_timeline`。
+
+### 环境变量
+
+- 环境变量使用 UPPER_SNAKE_CASE，并按模块前缀分组：`APP_*`、`DB_*`、`JWT_*`、`REDIS_*`、`AGENT_LLM_*`、`AGENT_TRACING_*`。
+
 ## OpenAI Agents SDK 开发约定
 
 - 保持 Agent 实现、Runner 工厂、领域工具、Guardrails、handoff、注册表和流式服务的职责分离。

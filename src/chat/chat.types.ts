@@ -12,17 +12,5 @@ export interface ChatSseEvent {
   data: Record<string, string>;
 }
 
-/** 分页查询的统一返回结构。 */
-export interface PaginatedResult<T> {
-  /** 当前页数据。 */
-  items: T[];
-  /** 符合筛选条件的总记录数。 */
-  total: number;
-  /** 当前页码。 */
-  page: number;
-  /** 当前页大小。 */
-  pageSize: number;
-}
-
 /** 与 Agent 历史消息角色一致的持久化消息角色类型。 */
 export type PersistedChatRole = ChatMessageRole;

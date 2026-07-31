@@ -105,7 +105,7 @@ export class ChatController {
   ): Observable<MessageEvent> {
     return new Observable<MessageEvent>((subscriber) => {
       const abortController = new AbortController();
-      let streamCompleted = false;
+      let isStreamCompleted = false;
       // 仅在响应尚未正常结束时中止底层 Agent 请求。
       const abort = () => {
         if (!response.writableEnded) {
@@ -126,7 +126,7 @@ export class ChatController {
             subscriber.next(event);
           }
 
-          streamCompleted = true;
+          isStreamCompleted = true;
           subscriber.complete();
         } catch (error) {
           subscriber.error(error);
@@ -135,7 +135,7 @@ export class ChatController {
 
       return () => {
         response.off("close", abort);
-        if (!streamCompleted && !response.writableEnded && !abortController.signal.aborted) {
+        if (!isStreamCompleted && !response.writableEnded && !abortController.signal.aborted) {
           abortController.abort();
         }
       };

@@ -7,8 +7,8 @@ import { Injectable } from "@nestjs/common";
 import { Agent } from "@openai/agents";
 import { AgentStreamInput, ChatAgent } from "../../agents.types";
 import { AgentsStreamingService } from "../../agents-streaming.service";
-import { agentInputSafetyGuardrail } from "../../guardrails/agent-input.guardrail";
-import { agentOutputSafetyGuardrail } from "../../guardrails/agent-output.guardrail";
+import { AGENT_INPUT_SAFETY_GUARDRAIL } from "../../guardrails/agent-input.guardrail";
+import { AGENT_OUTPUT_SAFETY_GUARDRAIL } from "../../guardrails/agent-output.guardrail";
 import { WeatherToolsFactory } from "../../tools/weather/weather-tools.factory";
 
 /**
@@ -63,8 +63,8 @@ export class WeatherAgentService implements ChatAgent {
       name: this.metadata.name,
       instructions: WEATHER_AGENT_INSTRUCTIONS,
       tools: this.weatherToolsFactory.create(),
-      inputGuardrails: [agentInputSafetyGuardrail],
-      outputGuardrails: [agentOutputSafetyGuardrail],
+      inputGuardrails: [AGENT_INPUT_SAFETY_GUARDRAIL],
+      outputGuardrails: [AGENT_OUTPUT_SAFETY_GUARDRAIL],
     });
   }
 }

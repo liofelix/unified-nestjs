@@ -12,8 +12,10 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { PaginationDto } from "../common/dto/pagination.dto";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { UsersService } from "./users.service";
@@ -32,10 +34,10 @@ export class UsersController {
     return this.usersService.create(createUserDto);
   }
 
-  /** 返回全部未删除用户。 */
+  /** 按分页参数返回未删除用户。 */
   @Get()
-  findAll() {
-    return this.usersService.findAll();
+  findAll(@Query() query: PaginationDto) {
+    return this.usersService.findAll(query);
   }
 
   /** 按 UUID 查询单个未删除用户。 */

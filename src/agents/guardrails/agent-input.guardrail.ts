@@ -33,7 +33,7 @@ export function findAgentInputSafetyViolation(input: string): AgentInputSafetyVi
  * OpenAI Agents SDK 使用的输入 guardrail。
  * 触发违规时设置 tripwire，统一由流式服务转换为客户端可理解的错误。
  */
-export const agentInputSafetyGuardrail: InputGuardrail = {
+export const AGENT_INPUT_SAFETY_GUARDRAIL: InputGuardrail = {
   name: "agent_input_safety",
   runInParallel: false,
   async execute({ input }) {

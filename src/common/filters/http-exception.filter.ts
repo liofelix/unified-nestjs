@@ -6,6 +6,9 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from
 import type { Response } from "express";
 import type { ApiResponse } from "../interceptors/response.interceptor";
 
+/** 非 HTTP 异常时的统一内部错误消息。 */
+const INTERNAL_SERVER_ERROR_MESSAGE = "Internal server error";
+
 /** 负责把异常安全地映射为客户端可消费的错误响应。 */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -26,7 +29,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
   /** 提取字符串、字符串数组或 NestJS 异常默认消息。 */
   private getMessage(exception: unknown): string {
     if (!(exception instanceof HttpException)) {
-      return "Internal server error";
+      return INTERNAL_SERVER_ERROR_MESSAGE;
     }
 
     const exceptionBody = exception.getResponse();
