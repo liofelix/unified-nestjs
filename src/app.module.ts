@@ -1,3 +1,7 @@
+/**
+ * 应用根模块。
+ * 集中组装配置、数据库、认证、用户、天气、Agent、聊天以及全局 HTTP 能力。
+ */
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
@@ -12,6 +16,7 @@ import { ResponseInterceptor } from "./common/interceptors/response.interceptor"
 import { UsersModule } from "./users/users.module";
 import { WeatherModule } from "./weather/weather.module";
 
+/** NestJS 应用根模块，注册全局拦截器、异常过滤器和 JWT 守卫。 */
 @Module({
   imports: [
     ConfigModule.forRoot({

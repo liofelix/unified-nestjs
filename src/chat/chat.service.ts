@@ -1,3 +1,7 @@
+/**
+ * 聊天业务服务。
+ * 负责会话和消息的持久化、用户范围校验、软删除以及 Agent 回复的 SSE 事件编排。
+ */
 import { HttpException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { randomUUID } from "node:crypto";
@@ -12,13 +16,19 @@ import { ChatConversation } from "./entities/chat-conversation.entity";
 import { ChatMessage } from "./entities/chat-message.entity";
 import { ChatSseEvent, PaginatedResult } from "./chat.types";
 
+/** 会话不存在或已软删除时的统一错误消息。 */
 const CONVERSATION_NOT_FOUND_MESSAGE = "对话不存在或已删除";
+/** Agent 执行失败且不宜暴露底层细节时的统一错误消息。 */
 const AGENT_FAILED_MESSAGE = "Agent 暂时不可用";
+/** Agent 没有产生有效文本时的错误消息。 */
 const AGENT_EMPTY_RESPONSE_MESSAGE = "Agent 未返回有效内容";
+/** 发送给 Agent 的最大历史消息条数。 */
 const HISTORY_MESSAGE_LIMIT = 20;
 
+/** 编排聊天会话、消息存储和 Agent 流式回复的服务。 */
 @Injectable()
 export class ChatService {
+  /** 注入会话仓库、消息仓库和 Agent 注册表。 */
   constructor(
     @InjectRepository(ChatConversation)
     private readonly conversationRepository: Repository<ChatConversation>,
@@ -27,6 +37,7 @@ export class ChatService {
     private readonly agentsRegistry: AgentsRegistry,
   ) {}
 
+  /** 校验 Agent code 后创建当前用户的聊天会话。 */
   async create(userId: string, dto: CreateConversationDto): Promise<ChatConversation> {
     this.agentsRegistry.getOrThrow(dto.agentCode);
 
@@ -40,6 +51,7 @@ export class ChatService {
     );
   }
 
+  /** 按用户范围分页查询未删除会话，并支持项目和 Agent 筛选。 */
   async findAll(
     userId: string,
     query: ListConversationsDto,
@@ -66,6 +78,7 @@ export class ChatService {
     return { items, total, page: query.page, pageSize: query.pageSize };
   }
 
+  /** 按会话 UUID 和创建者查询未删除会话，不存在时抛出 404。 */
   async findOne(id: string, userId: string): Promise<ChatConversation> {
     const conversation = await this.conversationRepository.findOne({
       where: { id, createdBy: userId, deletedAt: IsNull() },
@@ -78,6 +91,7 @@ export class ChatService {
     return conversation;
   }
 
+  /** 更新会话可变字段，并记录最近修改者。 */
   async update(id: string, userId: string, dto: UpdateConversationDto): Promise<ChatConversation> {
     const conversation = await this.findOne(id, userId);
 
@@ -94,12 +108,14 @@ export class ChatService {
     return this.conversationRepository.save(conversation);
   }
 
+  /** 在事务中软删除会话及其所有未删除消息。 */
   async remove(id: string, userId: string): Promise<void> {
     const conversation = await this.findOne(id, userId);
     const deletedAt = new Date();
     conversation.deletedAt = deletedAt;
     conversation.deletedBy = userId;
 
+    // 会话和消息必须在同一事务中标记，避免产生部分删除状态。
     await this.conversationRepository.manager.transaction(async (manager) => {
       await manager.save(conversation);
       await manager.update(
@@ -110,6 +126,7 @@ export class ChatService {
     });
   }
 
+  /** 校验会话归属后按创建时间正序返回消息。 */
   async getMessages(id: string, userId: string): Promise<ChatMessage[]> {
     await this.findOne(id, userId);
 
@@ -119,6 +136,10 @@ export class ChatService {
     });
   }
 
+  /**
+   * 编排一次用户消息的 Agent 流式回复。
+   * 先保存用户消息，再发送元信息和文本增量，完成后持久化助手消息；客户端中断时立即停止。
+   */
   async *streamReply(
     id: string,
     userId: string,
@@ -128,6 +149,7 @@ export class ChatService {
     let conversation: ChatConversation;
 
     try {
+      // 只有会话存在且其 Agent 已注册时，才开始写入用户消息。
       conversation = await this.findOne(id, userId);
       this.agentsRegistry.getOrThrow(conversation.agentCode);
     } catch (error) {
@@ -149,6 +171,7 @@ export class ChatService {
 
       const history = await this.getRecentHistory(id);
       const agent = this.agentsRegistry.getOrThrow(conversation.agentCode);
+      // 元信息事件让客户端在接收文本前获得请求和会话标识。
       yield {
         type: "meta",
         data: { requestId, conversationId: id, agentCode: conversation.agentCode },
@@ -192,6 +215,7 @@ export class ChatService {
     }
   }
 
+  /** 读取最近消息并反转为按时间正序的 Agent 历史格式。 */
   private async getRecentHistory(conversationId: string): Promise<AgentHistoryMessage[]> {
     const messages = await this.messageRepository.find({
       where: { conversationId, deletedAt: IsNull() },
@@ -202,12 +226,14 @@ export class ChatService {
     return messages.reverse().map(({ role, content }) => ({ role, content }));
   }
 
+  /** 更新会话最近活动时间和修改者。 */
   private async touchConversation(conversation: ChatConversation, userId: string): Promise<void> {
     conversation.updatedAt = new Date();
     conversation.updatedBy = userId;
     await this.conversationRepository.save(conversation);
   }
 
+  /** 将 HTTP 异常保留为业务消息，其余 Agent 错误统一隐藏底层细节。 */
   private errorEvent(error: unknown, code: string): ChatSseEvent {
     const message =
       error instanceof HttpException
