@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -42,20 +43,23 @@ export class UsersController {
 
   /** 按 UUID 查询单个未删除用户。 */
   @Get(":id")
-  findOne(@Param("id") id: string) {
+  findOne(@Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.usersService.findOne(id);
   }
 
-  /** 更新用户的用户名或邮箱。 */
+  /** 更新用户资料；请求携带 roleIds 时会在同一事务中替换用户全部角色。 */
   @Patch(":id")
-  update(@Param("id") id: string, @Body() updateUserDto: UpdateUserDto) {
+  update(
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
     return this.usersService.update(id, updateUserDto);
   }
 
   /** 软删除指定用户。 */
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
-  remove(@Param("id") id: string) {
+  remove(@Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
     return this.usersService.remove(id);
   }
 }

@@ -1,36 +1,42 @@
 /**
- * 用户持久化实体。
- * 对应 users 表，包含唯一身份字段、审计字段和软删除标记；密码默认不参与普通查询。
+ * 角色持久化实体。
+ * 对应 roles 表，包含角色标识、系统角色标记、审计字段和软删除标记。
  */
 import {
   Column,
   CreateDateColumn,
   Entity,
-  JoinTable,
+  Index,
   ManyToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
-import { Role } from "../../roles/entities/role.entity";
+import { User } from "../../users/entities/user.entity";
 
-/** users 表的 TypeORM 映射。 */
-@Entity("users")
-export class User {
-  /** 用户 UUID 主键。 */
+/** 支持按未删除状态和创建时间分页查询角色。 */
+@Index("IDX_roles_active_created", ["isDeleted", "createdAt"])
+/** roles 表的 TypeORM 映射。 */
+@Entity("roles")
+export class Role {
+  /** 角色 UUID 主键。 */
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 
-  /** 唯一登录用户名。 */
+  /** 稳定且唯一的机器可读角色编码。 */
   @Column({ type: "varchar", length: 50, unique: true })
-  username!: string;
+  code!: string;
 
-  /** bcrypt 哈希密码；select=false 避免普通查询返回。 */
-  @Column({ type: "varchar", length: 255, select: false })
-  password!: string;
+  /** 面向用户展示的角色名称。 */
+  @Column({ type: "varchar", length: 50 })
+  name!: string;
 
-  /** 唯一邮箱地址。 */
-  @Column({ type: "varchar", length: 255, unique: true })
-  email!: string;
+  /** 可选角色说明。 */
+  @Column({ type: "varchar", length: 255, nullable: true })
+  description: string | null = null;
+
+  /** 系统预置角色标记；系统角色的 code 不可修改且不可删除。 */
+  @Column({ name: "is_system", type: "boolean", default: false })
+  isSystem = false;
 
   /** 记录创建时间。 */
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
@@ -60,12 +66,7 @@ export class User {
   @Column({ name: "is_deleted", type: "boolean", default: false })
   isDeleted = false;
 
-  /** 用户拥有的角色集合；关联表使用 user_roles。 */
-  @ManyToMany(() => Role, (role) => role.users)
-  @JoinTable({
-    name: "user_roles",
-    joinColumn: { name: "user_id", referencedColumnName: "id" },
-    inverseJoinColumn: { name: "role_id", referencedColumnName: "id" },
-  })
-  roles!: Role[];
+  /** 拥有该角色的用户集合，仅用于关系查询，不向角色接口反向输出。 */
+  @ManyToMany(() => User, (user) => user.roles)
+  users!: User[];
 }

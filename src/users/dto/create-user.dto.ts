@@ -3,7 +3,17 @@
  * 定义用户名、邮箱和密码的格式边界，并为 Swagger 提供示例值。
  */
 import { ApiProperty } from "@nestjs/swagger";
-import { IsEmail, IsString, MaxLength, MinLength } from "class-validator";
+import { ApiPropertyOptional } from "@nestjs/swagger";
+import {
+  ArrayUnique,
+  IsArray,
+  IsEmail,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from "class-validator";
 
 /** 创建用户所需的注册信息。 */
 export class CreateUserDto {
@@ -26,4 +36,15 @@ export class CreateUserDto {
   @MinLength(8)
   @MaxLength(72)
   password!: string;
+
+  /** 可选额外角色 UUID；服务会始终补齐默认 user 角色。 */
+  @ApiPropertyOptional({
+    type: [String],
+    example: ["a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID("4", { each: true })
+  roleIds?: string[];
 }

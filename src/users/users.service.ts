@@ -7,7 +7,8 @@ import { PaginationDto } from "../common/dto/pagination.dto";
 import { PaginationResult } from "../common/types/pagination-result";
 import * as bcrypt from "bcrypt";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { QueryFailedError, Repository } from "typeorm";
+import { RolesService } from "../roles/roles.service";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { User } from "./entities/user.entity";
@@ -31,41 +32,58 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    private readonly rolesService: RolesService,
   ) {}
 
   /** 哈希密码后创建用户，并返回脱敏用户信息。 */
   async create(createUserDto: CreateUserDto): Promise<UserResponse> {
+    const { roleIds = [], ...userDto } = createUserDto;
     const password = await bcrypt.hash(createUserDto.password, BCRYPT_SALT_ROUNDS);
-    const user = this.usersRepository.create({
-      ...createUserDto,
-      password,
-    });
 
     try {
-      const savedUser = await this.usersRepository.save(user);
-      return this.findOne(savedUser.id);
-    } catch {
-      throw new ConflictException(USER_ALREADY_EXISTS_MESSAGE);
+      const savedUserId = await this.usersRepository.manager.transaction(async (manager) => {
+        const roles = await this.rolesService.resolveRolesForNewUser(roleIds, manager);
+        const user = manager.getRepository(User).create({ ...userDto, password, roles });
+        const savedUser = await manager.getRepository(User).save(user);
+        return savedUser.id;
+      });
+
+      return this.findOne(savedUserId);
+    } catch (error) {
+      if (error instanceof QueryFailedError) {
+        throw new ConflictException(USER_ALREADY_EXISTS_MESSAGE);
+      }
+
+      throw error;
     }
   }
 
   /** 按创建时间倒序分页返回未删除用户。 */
   async findAll(query: PaginationDto): Promise<PaginationResult<UserResponse>> {
-    const [items, total] = await this.usersRepository.findAndCount({
-      where: { isDeleted: false },
-      order: { createdAt: "DESC" },
-      skip: (query.pageNo - 1) * query.pageSize,
-      take: query.pageSize,
-    });
+    const [items, total] = await this.usersRepository
+      .createQueryBuilder("user")
+      .leftJoinAndSelect("user.roles", "role", "role.isDeleted = :roleDeleted", {
+        roleDeleted: false,
+      })
+      .where("user.isDeleted = :userDeleted", { userDeleted: false })
+      .orderBy("user.createdAt", "DESC")
+      .skip((query.pageNo - 1) * query.pageSize)
+      .take(query.pageSize)
+      .getManyAndCount();
 
     return { items, total, pageNo: query.pageNo, pageSize: query.pageSize };
   }
 
   /** 按 UUID 查询未删除用户，不存在时抛出 404。 */
   async findOne(id: string): Promise<UserResponse> {
-    const user = await this.usersRepository.findOne({
-      where: { id, isDeleted: false },
-    });
+    const user = await this.usersRepository
+      .createQueryBuilder("user")
+      .leftJoinAndSelect("user.roles", "role", "role.isDeleted = :roleDeleted", {
+        roleDeleted: false,
+      })
+      .where("user.id = :id", { id })
+      .andWhere("user.isDeleted = :userDeleted", { userDeleted: false })
+      .getOne();
 
     if (!user) {
       throw new NotFoundException(USER_NOT_FOUND_MESSAGE);
@@ -74,16 +92,39 @@ export class UsersService {
     return user;
   }
 
-  /** 更新用户资料，并将唯一约束冲突转换为 409。 */
+  /**
+   * 在事务中更新用户资料；请求显式携带 roleIds 时原子替换角色集合。
+   * roleIds 未传时保持现有角色，空数组表示解除全部角色。
+   */
   async update(id: string, updateUserDto: UpdateUserDto): Promise<UserResponse> {
-    const user = await this.findOne(id);
-    Object.assign(user, updateUserDto);
+    const { roleIds, ...userDto } = updateUserDto;
 
     try {
-      const savedUser = await this.usersRepository.save(user);
-      return this.findOne(savedUser.id);
-    } catch {
-      throw new ConflictException(USER_ALREADY_EXISTS_MESSAGE);
+      const savedUserId = await this.usersRepository.manager.transaction(async (manager) => {
+        const usersRepository = manager.getRepository(User);
+        const user = await usersRepository.findOne({ where: { id, isDeleted: false } });
+
+        if (!user) {
+          throw new NotFoundException(USER_NOT_FOUND_MESSAGE);
+        }
+
+        Object.assign(user, userDto);
+
+        if (roleIds !== undefined) {
+          user.roles = await this.rolesService.findActiveByIds(roleIds, manager);
+        }
+
+        const savedUser = await usersRepository.save(user);
+        return savedUser.id;
+      });
+
+      return this.findOne(savedUserId);
+    } catch (error) {
+      if (error instanceof QueryFailedError) {
+        throw new ConflictException(USER_ALREADY_EXISTS_MESSAGE);
+      }
+
+      throw error;
     }
   }
 
