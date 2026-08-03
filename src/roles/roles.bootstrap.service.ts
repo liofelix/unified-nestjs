@@ -5,6 +5,7 @@
 import { Injectable, OnApplicationBootstrap } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { BinaryStatus } from "../common/types/binary-status";
 import { Role } from "./entities/role.entity";
 import { SYSTEM_ROLE_DEFINITIONS } from "./roles.constants";
 
@@ -24,14 +25,14 @@ export class RolesBootstrapService implements OnApplicationBootstrap {
 
       if (!role) {
         await this.rolesRepository.save(
-          this.rolesRepository.create({ ...definition, isSystem: true }),
+          this.rolesRepository.create({ ...definition, isSystem: BinaryStatus.YES }),
         );
         continue;
       }
 
-      if (!role.isSystem || role.isDeleted) {
-        role.isSystem = true;
-        role.isDeleted = false;
+      if (role.isSystem !== BinaryStatus.YES || role.isDeleted === BinaryStatus.YES) {
+        role.isSystem = BinaryStatus.YES;
+        role.isDeleted = BinaryStatus.NO;
         role.deletedAt = null;
         role.deletedBy = null;
         await this.rolesRepository.save(role);

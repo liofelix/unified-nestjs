@@ -4,6 +4,7 @@
  */
 import {
   Column,
+  Check,
   CreateDateColumn,
   Entity,
   Index,
@@ -12,12 +13,14 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
+import { CHAT_MESSAGE_ROLES, ChatMessageRole } from "../chat.constants";
 import { ChatConversation } from "./chat-conversation.entity";
 
 /** 支持读取单个对话中未删除的消息，并按创建时间排序。 */
 @Index("IDX_chat_messages_conversation_timeline", ["conversationId", "deletedAt", "createdAt"])
 /** 会话消息实体，映射 chat_messages 表并关联所属会话。 */
 @Entity("chat_messages")
+@Check("CHK_chat_messages_role", `"role" IN (${CHAT_MESSAGE_ROLES.join(", ")})`)
 export class ChatMessage {
   /** 消息 UUID 主键。 */
   @PrimaryGeneratedColumn("uuid")
@@ -34,9 +37,9 @@ export class ChatMessage {
   @JoinColumn({ name: "conversation_id" })
   conversation!: ChatConversation;
 
-  /** 消息角色，仅允许用户或助手。 */
-  @Column({ type: "varchar", length: 20 })
-  role!: "user" | "assistant";
+  /** 消息角色，1 表示用户，2 表示助手。 */
+  @Column({ type: "smallint" })
+  role!: ChatMessageRole;
 
   /** 消息正文。 */
   @Column({ type: "text" })

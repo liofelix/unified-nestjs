@@ -4,6 +4,7 @@
  */
 import {
   Column,
+  Check,
   CreateDateColumn,
   Entity,
   Index,
@@ -14,8 +15,9 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
+import { BINARY_STATUSES, BinaryStatus } from "../../common/types/binary-status";
 import { Role } from "../../roles/entities/role.entity";
-import type { MenuType } from "../menus.constants";
+import { MENU_TYPES, type MenuType } from "../menus.constants";
 
 /** 支持按有效状态、父节点和排序字段查询菜单树。 */
 @Index("IDX_menus_active_parent_sort", ["isDeleted", "parentId", "sort"])
@@ -26,6 +28,9 @@ import type { MenuType } from "../menus.constants";
 })
 /** menus 表的 TypeORM 映射。 */
 @Entity("menus")
+@Check("CHK_menus_type", `"type" IN (${MENU_TYPES.join(", ")})`)
+@Check("CHK_menus_is_visible", `"is_visible" IN (${BINARY_STATUSES.join(", ")})`)
+@Check("CHK_menus_is_deleted", `"is_deleted" IN (${BINARY_STATUSES.join(", ")})`)
 export class Menu {
   /** 菜单 UUID 主键。 */
   @PrimaryGeneratedColumn("uuid")
@@ -40,7 +45,7 @@ export class Menu {
   name!: string;
 
   /** 菜单节点类型：目录、页面或按钮。 */
-  @Column({ type: "varchar", length: 20 })
+  @Column({ type: "smallint" })
   type!: MenuType;
 
   /** 父级菜单 UUID；根节点为空。 */
@@ -79,9 +84,9 @@ export class Menu {
   @Column({ type: "integer", default: 0 })
   sort = 0;
 
-  /** 菜单是否在前端导航中可见。 */
-  @Column({ name: "is_visible", type: "boolean", default: true })
-  isVisible = true;
+  /** 菜单是否在前端导航中可见，0 表示隐藏，1 表示显示。 */
+  @Column({ name: "is_visible", type: "smallint", default: BinaryStatus.YES })
+  isVisible = BinaryStatus.YES;
 
   /** 记录创建时间。 */
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
@@ -107,9 +112,9 @@ export class Menu {
   @Column({ name: "deleted_by", type: "uuid", nullable: true })
   deletedBy: string | null = null;
 
-  /** 软删除状态，查询服务默认只返回 false 的记录。 */
-  @Column({ name: "is_deleted", type: "boolean", default: false })
-  isDeleted = false;
+  /** 软删除状态，0 表示未删除，1 表示已删除。 */
+  @Column({ name: "is_deleted", type: "smallint", default: BinaryStatus.NO })
+  isDeleted = BinaryStatus.NO;
 
   /** 与该菜单关联的角色集合。 */
   @ManyToMany(() => Role, (role) => role.menus)

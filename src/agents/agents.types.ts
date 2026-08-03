@@ -3,8 +3,8 @@
  * 这些类型连接聊天历史、Agent 注册表和流式执行服务，不包含具体领域实现。
  */
 
-/** 聊天历史中允许出现的消息角色。 */
-export type ChatMessageRole = "user" | "assistant";
+/** Agent 历史中允许出现的字符串消息角色。 */
+export type AgentMessageRole = "user" | "assistant";
 
 /** Agent 对外展示和注册所需的稳定元数据。 */
 export interface AgentMetadata {
@@ -19,7 +19,7 @@ export interface AgentMetadata {
 /** 一条已经按角色标记的历史聊天消息。 */
 export interface AgentHistoryMessage {
   /** 消息来自用户还是 Agent。 */
-  role: ChatMessageRole;
+  role: AgentMessageRole;
   /** 消息正文。 */
   content: string;
 }

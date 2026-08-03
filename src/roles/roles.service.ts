@@ -10,6 +10,7 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { EntityManager, In, QueryFailedError, Repository } from "typeorm";
+import { BinaryStatus } from "../common/types/binary-status";
 import { PaginationDto } from "../common/dto/pagination.dto";
 import { PaginationResult } from "../common/types/pagination-result";
 import { MenusService } from "../menus/menus.service";
@@ -63,7 +64,7 @@ export class RolesService {
   /** 按创建时间倒序分页返回未删除角色。 */
   async findAll(query: PaginationDto): Promise<PaginationResult<RoleResponse>> {
     const [items, total] = await this.rolesRepository.findAndCount({
-      where: { isDeleted: false },
+      where: { isDeleted: BinaryStatus.NO },
       order: { createdAt: "DESC" },
       skip: (query.pageNo - 1) * query.pageSize,
       take: query.pageSize,
@@ -74,7 +75,9 @@ export class RolesService {
 
   /** 按 UUID 查询未删除角色，不存在时抛出 404。 */
   async findOne(id: string): Promise<RoleResponse> {
-    const role = await this.rolesRepository.findOne({ where: { id, isDeleted: false } });
+    const role = await this.rolesRepository.findOne({
+      where: { id, isDeleted: BinaryStatus.NO },
+    });
 
     if (!role) {
       throw new NotFoundException(ROLE_NOT_FOUND_MESSAGE);
@@ -94,13 +97,19 @@ export class RolesService {
     try {
       const savedRoleId = await this.rolesRepository.manager.transaction(async (manager) => {
         const rolesRepository = manager.getRepository(Role);
-        const role = await rolesRepository.findOne({ where: { id, isDeleted: false } });
+        const role = await rolesRepository.findOne({
+          where: { id, isDeleted: BinaryStatus.NO },
+        });
 
         if (!role) {
           throw new NotFoundException(ROLE_NOT_FOUND_MESSAGE);
         }
 
-        if (role.isSystem && roleDto.code !== undefined && roleDto.code !== role.code) {
+        if (
+          role.isSystem === BinaryStatus.YES &&
+          roleDto.code !== undefined &&
+          roleDto.code !== role.code
+        ) {
           throw new ConflictException(SYSTEM_ROLE_CODE_IMMUTABLE_MESSAGE);
         }
 
@@ -129,7 +138,7 @@ export class RolesService {
     const role = await this.findOne(id);
 
     if (
-      role.isSystem ||
+      role.isSystem === BinaryStatus.YES ||
       role.code === SYSTEM_ROLE_CODES.admin ||
       role.code === SYSTEM_ROLE_CODES.user
     ) {
@@ -146,7 +155,7 @@ export class RolesService {
       throw new ConflictException(ROLE_ASSIGNED_TO_USERS_MESSAGE);
     }
 
-    role.isDeleted = true;
+    role.isDeleted = BinaryStatus.YES;
     role.deletedAt = new Date();
     role.deletedBy = actorId;
     await this.rolesRepository.save(role);
@@ -159,7 +168,9 @@ export class RolesService {
     }
 
     const repository = manager?.getRepository(Role) ?? this.rolesRepository;
-    const roles = await repository.find({ where: { id: In(roleIds), isDeleted: false } });
+    const roles = await repository.find({
+      where: { id: In(roleIds), isDeleted: BinaryStatus.NO },
+    });
 
     if (roles.length !== roleIds.length) {
       throw new NotFoundException(ROLE_NOT_FOUND_MESSAGE);
@@ -173,7 +184,7 @@ export class RolesService {
     const repository = manager?.getRepository(Role) ?? this.rolesRepository;
     const roles = await this.findActiveByIds(roleIds, manager);
     const defaultUserRole = await repository.findOne({
-      where: { code: SYSTEM_ROLE_CODES.user, isDeleted: false },
+      where: { code: SYSTEM_ROLE_CODES.user, isDeleted: BinaryStatus.NO },
     });
 
     if (!defaultUserRole) {

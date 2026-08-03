@@ -4,6 +4,7 @@
  */
 import {
   Column,
+  Check,
   CreateDateColumn,
   Entity,
   Index,
@@ -12,6 +13,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
+import { BINARY_STATUSES, BinaryStatus } from "../../common/types/binary-status";
 import { Menu } from "../../menus/entities/menu.entity";
 import { User } from "../../users/entities/user.entity";
 
@@ -19,6 +21,8 @@ import { User } from "../../users/entities/user.entity";
 @Index("IDX_roles_active_created", ["isDeleted", "createdAt"])
 /** roles 表的 TypeORM 映射。 */
 @Entity("roles")
+@Check("CHK_roles_is_system", `"is_system" IN (${BINARY_STATUSES.join(", ")})`)
+@Check("CHK_roles_is_deleted", `"is_deleted" IN (${BINARY_STATUSES.join(", ")})`)
 export class Role {
   /** 角色 UUID 主键。 */
   @PrimaryGeneratedColumn("uuid")
@@ -36,9 +40,9 @@ export class Role {
   @Column({ type: "varchar", length: 255, nullable: true })
   description: string | null = null;
 
-  /** 系统预置角色标记；系统角色的 code 不可修改且不可删除。 */
-  @Column({ name: "is_system", type: "boolean", default: false })
-  isSystem = false;
+  /** 系统预置角色标记，0 表示普通角色，1 表示系统角色。 */
+  @Column({ name: "is_system", type: "smallint", default: BinaryStatus.NO })
+  isSystem = BinaryStatus.NO;
 
   /** 记录创建时间。 */
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
@@ -64,9 +68,9 @@ export class Role {
   @Column({ name: "deleted_by", type: "uuid", nullable: true })
   deletedBy: string | null = null;
 
-  /** 软删除状态，查询服务默认只返回 false 的记录。 */
-  @Column({ name: "is_deleted", type: "boolean", default: false })
-  isDeleted = false;
+  /** 软删除状态，0 表示未删除，1 表示已删除。 */
+  @Column({ name: "is_deleted", type: "smallint", default: BinaryStatus.NO })
+  isDeleted = BinaryStatus.NO;
 
   /** 拥有该角色的用户集合，仅用于关系查询，不向角色接口反向输出。 */
   @ManyToMany(() => User, (user) => user.roles)

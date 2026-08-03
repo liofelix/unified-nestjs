@@ -77,8 +77,10 @@
 ### 类型、接口与枚举
 
 - 类型别名与接口使用 PascalCase 名词：`JwtAuthenticatedUser`、`AuthResponse`、`WeatherDay`。
-- 优先使用字符串字面量联合类型而非 `enum`；取值使用小写 snake_case 并与外部契约（环境变量、API 值）保持一致：`"user" | "assistant"`、`"chat_completions" | "responses"`。
-- 若确需 `enum`，枚举名使用 PascalCase，成员使用 UPPER_SNAKE_CASE。
+- 非持久化的外部协议、环境变量和 Agent SDK 契约继续优先使用字符串字面量联合类型：`"user" | "assistant"`、`"chat_completions" | "responses"`。
+- 持久化字段或直接暴露给 HTTP/Swagger 的业务枚举必须使用显式数字 `enum`，枚举名使用 PascalCase，成员使用 UPPER_SNAKE_CASE；禁止依赖隐式自增值。
+- 持久化二值状态统一使用 `0` 表示否、隐藏、未删除或非系统，`1` 表示是、显示、已删除或系统；菜单类型固定为 `DIRECTORY=1`、`PAGE=2`、`BUTTON=3`；聊天消息角色固定为 `USER=1`、`ASSISTANT=2`。
+- DTO 对数字枚举使用 `IsEnum` 与整数校验，并在 Swagger 中声明数字枚举和数字示例；服务层、查询条件和默认值必须引用枚举常量，不得散落魔法数字。
 
 ### DTO 与 Entity
 
@@ -90,6 +92,7 @@
 - 表名使用 snake_case 复数：`chat_messages`、`users`。
 - 列名使用 snake_case；审计字段固定为 `created_at`、`updated_at`、`created_by`、`updated_by`、`deleted_at`。
 - 索引名遵循 `IDX_<表名>_<字段列表>`：`IDX_chat_messages_conversation_timeline`。
+- 持久化数字枚举使用 PostgreSQL `smallint` 列，设置数字默认值，并通过数据库检查约束限制在声明的枚举值内；不得使用字符串列模拟数字枚举。
 
 ### 环境变量
 

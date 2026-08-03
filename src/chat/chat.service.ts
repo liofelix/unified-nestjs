@@ -2,12 +2,19 @@
  * 聊天业务服务。
  * 负责会话和消息的持久化、用户范围校验、软删除以及 Agent 回复的 SSE 事件编排。
  */
-import { HttpException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  HttpException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { randomUUID } from "node:crypto";
 import { IsNull, Repository } from "typeorm";
-import { AgentHistoryMessage } from "../agents/agents.types";
+import type { AgentHistoryMessage, AgentMessageRole } from "../agents/agents.types";
 import { AgentsRegistry } from "../agents/agents.registry";
+import { PaginationResult } from "../common/types/pagination-result";
+import { ChatMessageRole } from "./chat.constants";
 import { CreateConversationDto } from "./dto/create-conversation.dto";
 import { ListConversationsDto } from "./dto/list-conversations.dto";
 import { SendMessageDto } from "./dto/send-message.dto";
@@ -15,7 +22,6 @@ import { UpdateConversationDto } from "./dto/update-conversation.dto";
 import { ChatConversation } from "./entities/chat-conversation.entity";
 import { ChatMessage } from "./entities/chat-message.entity";
 import { ChatSseEvent } from "./chat.types";
-import { PaginationResult } from "../common/types/pagination-result";
 
 /** 会话不存在或已软删除时的统一错误消息。 */
 const CONVERSATION_NOT_FOUND_MESSAGE = "对话不存在或已删除";
@@ -25,6 +31,8 @@ const AGENT_FAILED_MESSAGE = "Agent 暂时不可用";
 const AGENT_EMPTY_RESPONSE_MESSAGE = "Agent 未返回有效内容";
 /** 发送给 Agent 的最大历史消息条数。 */
 const HISTORY_MESSAGE_LIMIT = 20;
+/** 数据库中出现未声明消息角色时的内部错误消息。 */
+const INVALID_CHAT_MESSAGE_ROLE_MESSAGE = "聊天消息角色数据不合法";
 
 /** 编排聊天会话、消息存储和 Agent 流式回复的服务。 */
 @Injectable()
@@ -164,7 +172,7 @@ export class ChatService {
     try {
       await this.messageRepository.save({
         conversationId: id,
-        role: "user",
+        role: ChatMessageRole.USER,
         content: dto.message,
         createdBy: userId,
       });
@@ -201,7 +209,7 @@ export class ChatService {
 
       const assistantMessage = await this.messageRepository.save({
         conversationId: id,
-        role: "assistant",
+        role: ChatMessageRole.ASSISTANT,
         content: assistantText,
         createdBy: userId,
       });
@@ -224,7 +232,23 @@ export class ChatService {
       take: HISTORY_MESSAGE_LIMIT,
     });
 
-    return messages.reverse().map(({ role, content }) => ({ role, content }));
+    return messages.reverse().map(({ role, content }) => ({
+      role: this.toAgentMessageRole(role),
+      content,
+    }));
+  }
+
+  /** 将数据库数字消息角色转换为 Agent 使用的字符串角色。 */
+  private toAgentMessageRole(role: ChatMessageRole): AgentMessageRole {
+    if (role === ChatMessageRole.USER) {
+      return "user";
+    }
+
+    if (role === ChatMessageRole.ASSISTANT) {
+      return "assistant";
+    }
+
+    throw new InternalServerErrorException(INVALID_CHAT_MESSAGE_ROLE_MESSAGE);
   }
 
   /** 更新会话最近活动时间和修改者。 */

@@ -3,6 +3,7 @@
  * 对应 users 表，包含唯一身份字段、审计字段和软删除标记；密码默认不参与普通查询。
  */
 import {
+  Check,
   Column,
   CreateDateColumn,
   Entity,
@@ -11,10 +12,12 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
+import { BINARY_STATUSES, BinaryStatus } from "../../common/types/binary-status";
 import { Role } from "../../roles/entities/role.entity";
 
 /** users 表的 TypeORM 映射。 */
 @Entity("users")
+@Check("CHK_users_is_deleted", `"is_deleted" IN (${BINARY_STATUSES.join(", ")})`)
 export class User {
   /** 用户 UUID 主键。 */
   @PrimaryGeneratedColumn("uuid")
@@ -56,9 +59,9 @@ export class User {
   @Column({ name: "deleted_by", type: "uuid", nullable: true })
   deletedBy: string | null = null;
 
-  /** 软删除状态，查询服务默认只返回 false 的记录。 */
-  @Column({ name: "is_deleted", type: "boolean", default: false })
-  isDeleted = false;
+  /** 软删除状态，0 表示未删除，1 表示已删除。 */
+  @Column({ name: "is_deleted", type: "smallint", default: BinaryStatus.NO })
+  isDeleted = BinaryStatus.NO;
 
   /** 用户拥有的角色集合；关联表使用 user_roles。 */
   @ManyToMany(() => Role, (role) => role.users)

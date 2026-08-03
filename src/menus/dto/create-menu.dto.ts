@@ -5,8 +5,7 @@
 import { Transform } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
-  IsBoolean,
-  IsIn,
+  IsEnum,
   IsInt,
   IsOptional,
   IsString,
@@ -15,7 +14,8 @@ import {
   Min,
   MinLength,
 } from "class-validator";
-import { MENU_TYPES, type MenuType } from "../menus.constants";
+import { BINARY_STATUSES, BinaryStatus } from "../../common/types/binary-status";
+import { MENU_TYPE_PAGE, MENU_TYPES, MenuType } from "../menus.constants";
 
 /** 去除字符串首尾空白，非字符串值交由校验器处理。 */
 function trimString({ value }: { value: unknown }): unknown {
@@ -41,8 +41,9 @@ export class CreateMenuDto {
   name!: string;
 
   /** 菜单节点类型。 */
-  @ApiProperty({ enum: MENU_TYPES, example: "page" })
-  @IsIn(MENU_TYPES)
+  @ApiProperty({ enum: MENU_TYPES, example: MENU_TYPE_PAGE, type: Number })
+  @IsInt()
+  @IsEnum(MenuType)
   type!: MenuType;
 
   /** 父级菜单 UUID；根节点不传或传 null。 */
@@ -100,9 +101,15 @@ export class CreateMenuDto {
   @Min(0)
   sort?: number;
 
-  /** 是否在前端导航中显示，默认值为 true。 */
-  @ApiPropertyOptional({ example: true, default: true })
+  /** 是否在前端导航中显示，0 表示隐藏，1 表示显示。 */
+  @ApiPropertyOptional({
+    enum: BINARY_STATUSES,
+    example: BinaryStatus.YES,
+    default: BinaryStatus.YES,
+    type: Number,
+  })
   @IsOptional()
-  @IsBoolean()
-  isVisible?: boolean;
+  @IsInt()
+  @IsEnum(BinaryStatus)
+  isVisible?: BinaryStatus;
 }

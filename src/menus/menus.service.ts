@@ -12,6 +12,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { EntityManager, In, QueryFailedError, Repository } from "typeorm";
 import { JwtAuthenticatedUser } from "../auth/auth.types";
+import { BINARY_STATUSES, BinaryStatus } from "../common/types/binary-status";
 import { Role } from "../roles/entities/role.entity";
 import { SYSTEM_ROLE_CODES } from "../roles/roles.constants";
 import { User } from "../users/entities/user.entity";
@@ -96,7 +97,7 @@ interface MenuDraft {
   icon: string | null;
   permission: string | null;
   sort: number;
-  isVisible: boolean;
+  isVisible: BinaryStatus;
 }
 
 /** 执行菜单读写、树形组装和角色权限查询的服务。 */
@@ -165,7 +166,7 @@ export class MenusService {
       .createQueryBuilder("child")
       .innerJoin("child.parent", "parent")
       .where("parent.id = :parentId", { parentId: id })
-      .andWhere("child.isDeleted = :isDeleted", { isDeleted: false })
+      .andWhere("child.isDeleted = :isDeleted", { isDeleted: BinaryStatus.NO })
       .getCount();
 
     if (childCount > 0) {
@@ -182,7 +183,7 @@ export class MenusService {
       throw new ConflictException(MENU_ASSIGNED_TO_ROLES_MESSAGE);
     }
 
-    menu.isDeleted = true;
+    menu.isDeleted = BinaryStatus.YES;
     menu.deletedAt = new Date();
     menu.deletedBy = actorId;
     await this.menusRepository.save(menu);
@@ -232,10 +233,10 @@ export class MenusService {
         "user.roles",
         "role",
         "role.isDeleted = :roleDeleted AND role.code = :adminRoleCode",
-        { roleDeleted: false, adminRoleCode: SYSTEM_ROLE_CODES.admin },
+        { roleDeleted: BinaryStatus.NO, adminRoleCode: SYSTEM_ROLE_CODES.admin },
       )
       .where("user.id = :userId", { userId: actorId })
-      .andWhere("user.isDeleted = :userDeleted", { userDeleted: false })
+      .andWhere("user.isDeleted = :userDeleted", { userDeleted: BinaryStatus.NO })
       .getOne();
 
     if (!adminUser) {
@@ -248,13 +249,13 @@ export class MenusService {
     const currentUser = await this.usersRepository
       .createQueryBuilder("user")
       .leftJoinAndSelect("user.roles", "role", "role.isDeleted = :roleDeleted", {
-        roleDeleted: false,
+        roleDeleted: BinaryStatus.NO,
       })
       .leftJoinAndSelect("role.menus", "menu", "menu.isDeleted = :menuDeleted", {
-        menuDeleted: false,
+        menuDeleted: BinaryStatus.NO,
       })
       .where("user.id = :userId", { userId: user.id })
-      .andWhere("user.isDeleted = :userDeleted", { userDeleted: false })
+      .andWhere("user.isDeleted = :userDeleted", { userDeleted: BinaryStatus.NO })
       .getOne();
 
     if (!currentUser) {
@@ -314,7 +315,8 @@ export class MenusService {
     const permission =
       dto.permission === undefined ? (current?.permission ?? null) : dto.permission;
     const sort = dto.sort === undefined ? (current?.sort ?? 0) : dto.sort;
-    const isVisible = dto.isVisible === undefined ? (current?.isVisible ?? true) : dto.isVisible;
+    const isVisible =
+      dto.isVisible === undefined ? (current?.isVisible ?? BinaryStatus.YES) : dto.isVisible;
 
     if (typeof code !== "string" || typeof name !== "string") {
       throw new BadRequestException("菜单编码和名称不能为空");
@@ -328,8 +330,8 @@ export class MenusService {
       throw new BadRequestException("菜单排序值必须是非负整数");
     }
 
-    if (typeof isVisible !== "boolean") {
-      throw new BadRequestException("菜单可见状态必须是布尔值");
+    if (!this.isBinaryStatus(isVisible)) {
+      throw new BadRequestException("菜单可见状态必须是数字枚举");
     }
 
     return {
@@ -437,14 +439,16 @@ export class MenusService {
     const repository = manager?.getRepository(Menu) ?? this.menusRepository;
 
     return repository.find({
-      where: { isDeleted: false },
+      where: { isDeleted: BinaryStatus.NO },
       order: { sort: "ASC", createdAt: "ASC" },
     });
   }
 
   /** 查询单个未删除菜单实体。 */
   private async findActiveMenu(id: string): Promise<Menu> {
-    const menu = await this.menusRepository.findOne({ where: { id, isDeleted: false } });
+    const menu = await this.menusRepository.findOne({
+      where: { id, isDeleted: BinaryStatus.NO },
+    });
 
     if (!menu) {
       throw new NotFoundException(MENU_NOT_FOUND_MESSAGE);
@@ -459,10 +463,10 @@ export class MenusService {
     const role = await repository
       .createQueryBuilder("role")
       .leftJoinAndSelect("role.menus", "menu", "menu.isDeleted = :menuDeleted", {
-        menuDeleted: false,
+        menuDeleted: BinaryStatus.NO,
       })
       .where("role.id = :roleId", { roleId })
-      .andWhere("role.isDeleted = :roleDeleted", { roleDeleted: false })
+      .andWhere("role.isDeleted = :roleDeleted", { roleDeleted: BinaryStatus.NO })
       .getOne();
 
     if (!role) {
@@ -479,7 +483,9 @@ export class MenusService {
     }
 
     const repository = manager?.getRepository(Menu) ?? this.menusRepository;
-    const menus = await repository.find({ where: { id: In(ids), isDeleted: false } });
+    const menus = await repository.find({
+      where: { id: In(ids), isDeleted: BinaryStatus.NO },
+    });
 
     if (menus.length !== ids.length) {
       throw new NotFoundException(MENU_NOT_FOUND_MESSAGE);
@@ -560,7 +566,12 @@ export class MenusService {
 
   /** 判断值是否为受支持的菜单类型。 */
   private isMenuType(value: unknown): value is MenuType {
-    return typeof value === "string" && MENU_TYPES.includes(value as MenuType);
+    return typeof value === "number" && MENU_TYPES.includes(value as MenuType);
+  }
+
+  /** 判断值是否为受支持的二值数字状态。 */
+  private isBinaryStatus(value: unknown): value is BinaryStatus {
+    return typeof value === "number" && BINARY_STATUSES.includes(value as BinaryStatus);
   }
 
   /** 将可选字符串统一转换为空值或去除首尾空白的字符串。 */

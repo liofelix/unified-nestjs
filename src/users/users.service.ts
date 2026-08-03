@@ -5,6 +5,7 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { PaginationDto } from "../common/dto/pagination.dto";
 import { PaginationResult } from "../common/types/pagination-result";
+import { BinaryStatus } from "../common/types/binary-status";
 import * as bcrypt from "bcrypt";
 import { InjectRepository } from "@nestjs/typeorm";
 import { QueryFailedError, Repository } from "typeorm";
@@ -63,9 +64,9 @@ export class UsersService {
     const [items, total] = await this.usersRepository
       .createQueryBuilder("user")
       .leftJoinAndSelect("user.roles", "role", "role.isDeleted = :roleDeleted", {
-        roleDeleted: false,
+        roleDeleted: BinaryStatus.NO,
       })
-      .where("user.isDeleted = :userDeleted", { userDeleted: false })
+      .where("user.isDeleted = :userDeleted", { userDeleted: BinaryStatus.NO })
       .orderBy("user.createdAt", "DESC")
       .skip((query.pageNo - 1) * query.pageSize)
       .take(query.pageSize)
@@ -79,10 +80,10 @@ export class UsersService {
     const user = await this.usersRepository
       .createQueryBuilder("user")
       .leftJoinAndSelect("user.roles", "role", "role.isDeleted = :roleDeleted", {
-        roleDeleted: false,
+        roleDeleted: BinaryStatus.NO,
       })
       .where("user.id = :id", { id })
-      .andWhere("user.isDeleted = :userDeleted", { userDeleted: false })
+      .andWhere("user.isDeleted = :userDeleted", { userDeleted: BinaryStatus.NO })
       .getOne();
 
     if (!user) {
@@ -102,7 +103,9 @@ export class UsersService {
     try {
       const savedUserId = await this.usersRepository.manager.transaction(async (manager) => {
         const usersRepository = manager.getRepository(User);
-        const user = await usersRepository.findOne({ where: { id, isDeleted: false } });
+        const user = await usersRepository.findOne({
+          where: { id, isDeleted: BinaryStatus.NO },
+        });
 
         if (!user) {
           throw new NotFoundException(USER_NOT_FOUND_MESSAGE);
@@ -131,7 +134,7 @@ export class UsersService {
   /** 标记用户为已删除，不物理删除数据库记录。 */
   async remove(id: string): Promise<void> {
     const user = await this.findOne(id);
-    user.isDeleted = true;
+    user.isDeleted = BinaryStatus.YES;
     user.deletedAt = new Date();
     await this.usersRepository.save(user);
   }
@@ -141,7 +144,7 @@ export class UsersService {
     return this.usersRepository
       .createQueryBuilder("user")
       .addSelect("user.password")
-      .where("user.isDeleted = :isDeleted", { isDeleted: false })
+      .where("user.isDeleted = :isDeleted", { isDeleted: BinaryStatus.NO })
       .andWhere("user.username = :username", { username })
       .getOne();
   }

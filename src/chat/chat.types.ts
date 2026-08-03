@@ -2,7 +2,7 @@
  * 聊天模块共享类型。
  * 连接 HTTP/SSE 控制器、会话服务、持久化实体和 Agent 历史消息。
  */
-import { ChatMessageRole } from "../agents/agents.types";
+import { ChatMessageRole } from "./chat.constants";
 
 /** 聊天 SSE 接口向客户端发送的事件结构。 */
 export interface ChatSseEvent {
@@ -12,5 +12,5 @@ export interface ChatSseEvent {
   data: Record<string, string>;
 }
 
-/** 与 Agent 历史消息角色一致的持久化消息角色类型。 */
+/** 聊天消息表中保存的数字角色类型。 */
 export type PersistedChatRole = ChatMessageRole;
