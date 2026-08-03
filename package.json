@@ -9,6 +9,7 @@
     "build": "nest build",
     "format": "oxfmt --write \"src/**/*.ts\"",
     "format:check": "oxfmt --check \"src/**/*.ts\"",
+    "test": "vitest run",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
@@ -50,6 +51,7 @@
     "oxlint": "^1.76.0",
     "source-map-support": "^0.5.21",
     "ts-loader": "^9.6.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   }
 }

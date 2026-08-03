@@ -9,9 +9,10 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { EntityManager, In, Repository } from "typeorm";
+import { EntityManager, In, QueryFailedError, Repository } from "typeorm";
 import { PaginationDto } from "../common/dto/pagination.dto";
 import { PaginationResult } from "../common/types/pagination-result";
+import { MenusService } from "../menus/menus.service";
 import { CreateRoleDto } from "./dto/create-role.dto";
 import { UpdateRoleDto } from "./dto/update-role.dto";
 import { Role } from "./entities/role.entity";
@@ -36,7 +37,7 @@ const ROLE_ASSIGNED_TO_USERS_MESSAGE = "角色仍关联用户，无法删除";
 const DEFAULT_USER_ROLE_MISSING_MESSAGE = "默认用户角色不存在";
 
 /** 对外返回的角色形状，不反向包含用户集合。 */
-export type RoleResponse = Omit<Role, "users">;
+export type RoleResponse = Omit<Role, "users" | "menus">;
 
 /** 执行角色 CRUD、软删除和角色分配校验。 */
 @Injectable()
@@ -45,6 +46,7 @@ export class RolesService {
   constructor(
     @InjectRepository(Role)
     private readonly rolesRepository: Repository<Role>,
+    private readonly menusService: MenusService,
   ) {}
 
   /** 创建普通角色并写入创建人。 */
@@ -83,18 +85,42 @@ export class RolesService {
 
   /** 更新角色资料；系统角色仅禁止变更 code。 */
   async update(id: string, dto: UpdateRoleDto, actorId: string): Promise<RoleResponse> {
-    const role = await this.findOne(id);
+    const { menuIds, ...roleDto } = dto;
 
-    if (role.isSystem && dto.code !== undefined && dto.code !== role.code) {
-      throw new ConflictException(SYSTEM_ROLE_CODE_IMMUTABLE_MESSAGE);
+    if (menuIds !== undefined) {
+      await this.menusService.assertAdmin(actorId);
     }
 
-    Object.assign(role, dto, { updatedBy: actorId });
-
     try {
-      return await this.rolesRepository.save(role);
-    } catch {
-      throw new ConflictException(ROLE_ALREADY_EXISTS_MESSAGE);
+      const savedRoleId = await this.rolesRepository.manager.transaction(async (manager) => {
+        const rolesRepository = manager.getRepository(Role);
+        const role = await rolesRepository.findOne({ where: { id, isDeleted: false } });
+
+        if (!role) {
+          throw new NotFoundException(ROLE_NOT_FOUND_MESSAGE);
+        }
+
+        if (role.isSystem && roleDto.code !== undefined && roleDto.code !== role.code) {
+          throw new ConflictException(SYSTEM_ROLE_CODE_IMMUTABLE_MESSAGE);
+        }
+
+        Object.assign(role, roleDto, { updatedBy: actorId });
+        await rolesRepository.save(role);
+
+        if (menuIds !== undefined) {
+          await this.menusService.replaceRoleMenus(role.id, menuIds, actorId, manager);
+        }
+
+        return role.id;
+      });
+
+      return this.findOne(savedRoleId);
+    } catch (error) {
+      if (error instanceof QueryFailedError) {
+        throw new ConflictException(ROLE_ALREADY_EXISTS_MESSAGE);
+      }
+
+      throw error;
     }
   }
 

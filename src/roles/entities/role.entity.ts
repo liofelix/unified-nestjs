@@ -7,10 +7,12 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  JoinTable,
   ManyToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
+import { Menu } from "../../menus/entities/menu.entity";
 import { User } from "../../users/entities/user.entity";
 
 /** 支持按未删除状态和创建时间分页查询角色。 */
@@ -69,4 +71,13 @@ export class Role {
   /** 拥有该角色的用户集合，仅用于关系查询，不向角色接口反向输出。 */
   @ManyToMany(() => User, (user) => user.roles)
   users!: User[];
+
+  /** 角色拥有的菜单、页面和按钮权限集合；关联表使用 role_menus。 */
+  @ManyToMany(() => Menu, (menu) => menu.roles)
+  @JoinTable({
+    name: "role_menus",
+    joinColumn: { name: "role_id", referencedColumnName: "id" },
+    inverseJoinColumn: { name: "menu_id", referencedColumnName: "id" },
+  })
+  menus!: Menu[];
 }

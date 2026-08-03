@@ -5,6 +5,7 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from "@nestjs/common";
 import { SSE_METADATA } from "@nestjs/common/constants";
 import { map, Observable } from "rxjs";
+import { SUCCESS_MESSAGE } from "../messages/api-messages";
 
 /** 应用对外统一返回的成功响应结构。 */
 export interface ApiResponse<T> {
@@ -15,9 +16,6 @@ export interface ApiResponse<T> {
   /** 面向客户端的结果消息。 */
   msg: string;
 }
-
-/** 成功响应的统一结果消息。 */
-const SUCCESS_MESSAGE = "success";
 
 /** 将普通控制器返回值包装为统一响应的全局拦截器。 */
 @Injectable()

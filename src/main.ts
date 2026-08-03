@@ -2,10 +2,11 @@
  * 应用启动入口。
  * 创建 NestJS 应用、启用请求校验、注册统一 API 前缀与 Swagger 文档，最后监听配置端口。
  */
-import { ValidationPipe } from "@nestjs/common";
+import { BadRequestException, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
+import { formatValidationErrors } from "./common/messages/api-messages";
 
 /** 创建并启动 HTTP 应用实例。 */
 async function bootstrap() {
@@ -17,6 +18,7 @@ async function bootstrap() {
       transform: true,
       whitelist: true,
       forbidNonWhitelisted: true,
+      exceptionFactory: (errors) => new BadRequestException(formatValidationErrors(errors)),
     }),
   );
   app.setGlobalPrefix(process.env.APP_API_PREFIX ?? "api");

@@ -58,11 +58,11 @@ pnpm install
 {
   "code": 200,
   "data": {},
-  "msg": "success"
+  "msg": "操作成功"
 }
 ```
 
-`code` 与 HTTP 状态码一致。失败时 `data` 为 `null`，`msg` 为错误信息。
+`code` 与 HTTP 状态码一致。失败时 `data` 为 `null`，`msg` 为简体中文错误信息；多条参数校验信息使用 `；` 拼接。
 
 ## 用户接口
 

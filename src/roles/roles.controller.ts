@@ -20,6 +20,7 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
 import { JwtAuthenticatedUser } from "../auth/auth.types";
 import { PaginationDto } from "../common/dto/pagination.dto";
+import { MenusService } from "../menus/menus.service";
 import { CreateRoleDto } from "./dto/create-role.dto";
 import { UpdateRoleDto } from "./dto/update-role.dto";
 import { RolesService } from "./roles.service";
@@ -33,7 +34,10 @@ type AuthenticatedRequest = Request & { user: JwtAuthenticatedUser };
 @Controller("roles")
 export class RolesController {
   /** 注入角色业务服务。 */
-  constructor(private readonly rolesService: RolesService) {}
+  constructor(
+    private readonly rolesService: RolesService,
+    private readonly menusService: MenusService,
+  ) {}
 
   /** 创建普通角色。 */
   @Post()
@@ -45,6 +49,15 @@ export class RolesController {
   @Get()
   findAll(@Query() query: PaginationDto) {
     return this.rolesService.findAll(query);
+  }
+
+  /** 查询角色直接关联的有效菜单 ID。 */
+  @Get(":id/menus")
+  findMenus(
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.menusService.findRoleMenuIds(id, request.user.id);
   }
 
   /** 查询单个未删除角色。 */

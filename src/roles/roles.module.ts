@@ -4,6 +4,7 @@
  */
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { MenusModule } from "../menus/menus.module";
 import { Role } from "./entities/role.entity";
 import { RolesBootstrapService } from "./roles.bootstrap.service";
 import { RolesController } from "./roles.controller";
@@ -11,7 +12,7 @@ import { RolesService } from "./roles.service";
 
 /** 角色领域的 NestJS 模块。 */
 @Module({
-  imports: [TypeOrmModule.forFeature([Role])],
+  imports: [TypeOrmModule.forFeature([Role]), MenusModule],
   controllers: [RolesController],
   providers: [RolesService, RolesBootstrapService],
   exports: [RolesService],

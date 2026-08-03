@@ -13,6 +13,7 @@ import { ChatModule } from "./chat/chat.module";
 import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
+import { MenusModule } from "./menus/menus.module";
 import { RolesModule } from "./roles/roles.module";
 import { UsersModule } from "./users/users.module";
 import { WeatherModule } from "./weather/weather.module";
@@ -39,6 +40,7 @@ import { WeatherModule } from "./weather/weather.module";
         migrationsRun: false,
       }),
     }),
+    MenusModule,
     RolesModule,
     AuthModule,
     UsersModule,

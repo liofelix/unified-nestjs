@@ -4,10 +4,8 @@
  */
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from "@nestjs/common";
 import type { Response } from "express";
+import { INTERNAL_SERVER_ERROR_MESSAGE, normalizeHttpMessage } from "../messages/api-messages";
 import type { ApiResponse } from "../interceptors/response.interceptor";
-
-/** 非 HTTP 异常时的统一内部错误消息。 */
-const INTERNAL_SERVER_ERROR_MESSAGE = "Internal server error";
 
 /** 负责把异常安全地映射为客户端可消费的错误响应。 */
 @Catch()
@@ -20,14 +18,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const responseBody: ApiResponse<null> = {
       code: statusCode,
       data: null,
-      msg: this.getMessage(exception),
+      msg: this.getMessage(exception, statusCode),
     };
 
     response.status(statusCode).json(responseBody);
   }
 
-  /** 提取字符串、字符串数组或 NestJS 异常默认消息。 */
-  private getMessage(exception: unknown): string {
+  /** 提取并中文化字符串、字符串数组或 NestJS 异常默认消息。 */
+  private getMessage(exception: unknown, statusCode: number): string {
     if (!(exception instanceof HttpException)) {
       return INTERNAL_SERVER_ERROR_MESSAGE;
     }
@@ -35,7 +33,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const exceptionBody = exception.getResponse();
 
     if (typeof exceptionBody === "string") {
-      return exceptionBody;
+      return normalizeHttpMessage(exceptionBody, statusCode);
     }
 
     const message =
@@ -43,10 +41,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
         ? (exceptionBody as { message?: unknown }).message
         : exception.message;
 
-    if (Array.isArray(message)) {
-      return message.join("; ");
-    }
-
-    return typeof message === "string" ? message : exception.message;
+    return normalizeHttpMessage(message ?? exception.message, statusCode);
   }
 }

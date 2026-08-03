@@ -6,7 +6,7 @@ import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { AgentMetadata, ChatAgent, CHAT_AGENT_PROVIDERS } from "./agents.types";
 
 /** 按 code 查找不到 Agent 时返回给客户端的统一错误消息。 */
-const AGENT_NOT_FOUND_MESSAGE = "Agent 不存在或不可用";
+const AGENT_NOT_FOUND_MESSAGE = "智能体不存在或不可用";
 
 /** 管理已注册 ChatAgent 的索引和查询。 */
 @Injectable()
