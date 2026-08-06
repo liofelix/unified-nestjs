@@ -15,10 +15,12 @@ import {
   Post,
   Query,
   Req,
+  UseGuards,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
-import { JwtAuthenticatedUser } from "../auth/auth.types";
+import type { JwtAuthenticatedUser } from "../auth/auth.types";
+import { AdminGuard } from "../auth/guards/admin.guard";
 import { PaginationDto } from "../common/dto/pagination.dto";
 import { MenusService } from "../menus/menus.service";
 import { CreateRoleDto } from "./dto/create-role.dto";
@@ -30,6 +32,7 @@ type AuthenticatedRequest = Request & { user: JwtAuthenticatedUser };
 
 @ApiTags("角色")
 @ApiBearerAuth()
+@UseGuards(AdminGuard)
 /** 将角色 HTTP 请求委托给 RolesService 的控制器。 */
 @Controller("roles")
 export class RolesController {

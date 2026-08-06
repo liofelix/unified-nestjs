@@ -8,7 +8,9 @@ import { PaginationResult } from "../common/types/pagination-result";
 import { BinaryStatus } from "../common/types/binary-status";
 import * as bcrypt from "bcrypt";
 import { InjectRepository } from "@nestjs/typeorm";
-import { QueryFailedError, Repository } from "typeorm";
+import { Repository } from "typeorm";
+import { isPostgresUniqueViolation } from "../common/errors/database-error";
+import type { ActiveAuthContext } from "../auth/auth.types";
 import { RolesService } from "../roles/roles.service";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
@@ -37,21 +39,23 @@ export class UsersService {
   ) {}
 
   /** 哈希密码后创建用户，并返回脱敏用户信息。 */
-  async create(createUserDto: CreateUserDto): Promise<UserResponse> {
+  async create(createUserDto: CreateUserDto, actorId: string): Promise<UserResponse> {
     const { roleIds = [], ...userDto } = createUserDto;
     const password = await bcrypt.hash(createUserDto.password, BCRYPT_SALT_ROUNDS);
 
     try {
       const savedUserId = await this.usersRepository.manager.transaction(async (manager) => {
         const roles = await this.rolesService.resolveRolesForNewUser(roleIds, manager);
-        const user = manager.getRepository(User).create({ ...userDto, password, roles });
+        const user = manager
+          .getRepository(User)
+          .create({ ...userDto, password, roles, createdBy: actorId });
         const savedUser = await manager.getRepository(User).save(user);
         return savedUser.id;
       });
 
       return this.findOne(savedUserId);
     } catch (error) {
-      if (error instanceof QueryFailedError) {
+      if (isPostgresUniqueViolation(error)) {
         throw new ConflictException(USER_ALREADY_EXISTS_MESSAGE);
       }
 
@@ -97,7 +101,7 @@ export class UsersService {
    * 在事务中更新用户资料；请求显式携带 roleIds 时原子替换角色集合。
    * roleIds 未传时保持现有角色，空数组表示解除全部角色。
    */
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<UserResponse> {
+  async update(id: string, updateUserDto: UpdateUserDto, actorId: string): Promise<UserResponse> {
     const { roleIds, ...userDto } = updateUserDto;
 
     try {
@@ -111,7 +115,7 @@ export class UsersService {
           throw new NotFoundException(USER_NOT_FOUND_MESSAGE);
         }
 
-        Object.assign(user, userDto);
+        Object.assign(user, userDto, { updatedBy: actorId });
 
         if (roleIds !== undefined) {
           user.roles = await this.rolesService.findActiveByIds(roleIds, manager);
@@ -123,7 +127,7 @@ export class UsersService {
 
       return this.findOne(savedUserId);
     } catch (error) {
-      if (error instanceof QueryFailedError) {
+      if (isPostgresUniqueViolation(error)) {
         throw new ConflictException(USER_ALREADY_EXISTS_MESSAGE);
       }
 
@@ -131,12 +135,39 @@ export class UsersService {
     }
   }
 
-  /** 标记用户为已删除，不物理删除数据库记录。 */
-  async remove(id: string): Promise<void> {
-    const user = await this.findOne(id);
-    user.isDeleted = BinaryStatus.YES;
-    user.deletedAt = new Date();
-    await this.usersRepository.save(user);
+  /** 标记用户为已删除，不物理删除数据库记录，并记录操作者。 */
+  async remove(id: string, actorId: string): Promise<void> {
+    const result = await this.usersRepository.update(
+      { id, isDeleted: BinaryStatus.NO },
+      { isDeleted: BinaryStatus.YES, deletedAt: new Date(), deletedBy: actorId },
+    );
+
+    if (!result.affected) {
+      throw new NotFoundException(USER_NOT_FOUND_MESSAGE);
+    }
+  }
+
+  /** 查询未删除用户的最新身份资料和角色编码，用于每次 JWT 请求重新授权。 */
+  async findActiveAuthContext(id: string): Promise<ActiveAuthContext | null> {
+    const user = await this.usersRepository
+      .createQueryBuilder("user")
+      .leftJoinAndSelect("user.roles", "role", "role.isDeleted = :roleDeleted", {
+        roleDeleted: BinaryStatus.NO,
+      })
+      .where("user.id = :id", { id })
+      .andWhere("user.isDeleted = :userDeleted", { userDeleted: BinaryStatus.NO })
+      .getOne();
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      roleCodes: [...new Set((user.roles ?? []).map((role) => role.code))],
+    };
   }
 
   /** 按用户名查询未删除用户，并显式加载默认隐藏的密码哈希。 */

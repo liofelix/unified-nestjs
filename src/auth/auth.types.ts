@@ -36,4 +36,18 @@ export interface JwtAuthenticatedUser {
   tokenId: string;
   /** 当前令牌过期时间。 */
   expiresAt: number;
+  /** 当前数据库中仍然有效的角色编码。 */
+  roleCodes: string[];
+}
+
+/** JWT 校验阶段从数据库读取的活动用户认证上下文。 */
+export interface ActiveAuthContext {
+  /** 用户 UUID。 */
+  id: string;
+  /** 当前用户名。 */
+  username: string;
+  /** 当前邮箱。 */
+  email: string;
+  /** 当前未删除角色编码。 */
+  roleCodes: string[];
 }

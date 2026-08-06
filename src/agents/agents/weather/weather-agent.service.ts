@@ -5,7 +5,7 @@
  */
 import { Injectable } from "@nestjs/common";
 import { Agent } from "@openai/agents";
-import { AgentStreamInput, ChatAgent } from "../../agents.types";
+import type { AgentStreamInput, ChatAgent } from "../../agents.types";
 import { AgentsStreamingService } from "../../agents-streaming.service";
 import { AGENT_INPUT_SAFETY_GUARDRAIL } from "../../guardrails/agent-input.guardrail";
 import { AGENT_OUTPUT_SAFETY_GUARDRAIL } from "../../guardrails/agent-output.guardrail";
@@ -35,6 +35,9 @@ export class WeatherAgentService implements ChatAgent {
     description: "查询当前、今天和明天的天气",
   };
 
+  /** 延迟创建并跨请求复用的天气 Agent 实例。 */
+  private agent?: Agent;
+
   /**
    * 注入统一流式执行器和天气工具工厂。
    * 工具工厂按每次创建 Agent 时生成可调用的天气查询工具，避免在此处耦合具体 API。
@@ -56,15 +59,21 @@ export class WeatherAgentService implements ChatAgent {
    * 创建 OpenAI Agent 运行时实例。
    *
    * 实例包含天气查询工具、天气范围与回答规范，以及输入和输出两侧的安全 guardrail；
-   * 每次调用都会重新组装工具列表，确保 Agent 使用当前依赖和配置。
+   * Agent 和工具列表在首次使用时组装，后续请求复用同一实例。
    */
   createAgent(): Agent {
-    return new Agent({
+    if (this.agent) {
+      return this.agent;
+    }
+
+    this.agent = new Agent({
       name: this.metadata.name,
       instructions: WEATHER_AGENT_INSTRUCTIONS,
       tools: this.weatherToolsFactory.create(),
       inputGuardrails: [AGENT_INPUT_SAFETY_GUARDRAIL],
       outputGuardrails: [AGENT_OUTPUT_SAFETY_GUARDRAIL],
     });
+
+    return this.agent;
   }
 }

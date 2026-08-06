@@ -3,7 +3,7 @@
  * 角色编码、名称、说明和菜单关联均可部分更新，系统角色的 code 由服务层额外保护。
  */
 import { ApiPropertyOptional, PartialType } from "@nestjs/swagger";
-import { ArrayUnique, IsArray, IsOptional, IsUUID } from "class-validator";
+import { ArrayMaxSize, ArrayUnique, IsArray, IsOptional, IsUUID } from "class-validator";
 import { CreateRoleDto } from "./create-role.dto";
 
 /** 角色资料的部分更新参数。 */
@@ -15,6 +15,7 @@ export class UpdateRoleDto extends PartialType(CreateRoleDto) {
   })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(100)
   @ArrayUnique()
   @IsUUID("4", { each: true })
   menuIds?: string[];

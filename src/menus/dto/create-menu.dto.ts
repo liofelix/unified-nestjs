@@ -15,7 +15,7 @@ import {
   MinLength,
 } from "class-validator";
 import { BINARY_STATUSES, BinaryStatus } from "../../common/types/binary-status";
-import { MENU_TYPE_PAGE, MENU_TYPES, MenuType } from "../menus.constants";
+import { MENU_TYPES, MenuType } from "../menus.constants";
 
 /** 去除字符串首尾空白，非字符串值交由校验器处理。 */
 function trimString({ value }: { value: unknown }): unknown {
@@ -41,7 +41,7 @@ export class CreateMenuDto {
   name!: string;
 
   /** 菜单节点类型。 */
-  @ApiProperty({ enum: MENU_TYPES, example: MENU_TYPE_PAGE, type: Number })
+  @ApiProperty({ enum: MENU_TYPES, example: MenuType.PAGE, type: Number })
   @IsInt()
   @IsEnum(MenuType)
   type!: MenuType;

@@ -9,7 +9,7 @@ import { randomUUID } from "node:crypto";
 import { UsersService } from "../users/users.service";
 import { AuthRevocationService } from "./auth.revocation.service";
 import { LoginDto } from "./dto/login.dto";
-import { AuthResponse, JwtAuthenticatedUser } from "./auth.types";
+import type { AuthResponse, JwtAuthenticatedUser } from "./auth.types";
 
 /** 凭据校验失败时对外返回的统一错误消息。 */
 export const INVALID_CREDENTIALS_MESSAGE = "用户名或密码错误";

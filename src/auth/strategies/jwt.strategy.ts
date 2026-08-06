@@ -7,7 +7,8 @@ import { ConfigService } from "@nestjs/config";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
 import { AuthRevocationService } from "../auth.revocation.service";
-import { JwtAuthenticatedUser, JwtPayload } from "../auth.types";
+import type { JwtAuthenticatedUser, JwtPayload } from "../auth.types";
+import { UsersService } from "../../users/users.service";
 
 /** JWT 载荷字段非法时对外返回的统一错误消息。 */
 const INVALID_ACCESS_TOKEN_MESSAGE = "无效的访问令牌";
@@ -22,6 +23,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     configService: ConfigService,
     private readonly authRevocationService: AuthRevocationService,
+    private readonly usersService: UsersService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -30,9 +32,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  /** 校验令牌业务字段及撤销状态，并返回最小用户上下文。 */
+  /** 校验令牌业务字段、撤销状态和当前用户状态，并返回请求上下文。 */
   async validate(payload: JwtPayload): Promise<JwtAuthenticatedUser> {
-    if (payload.type !== "access" || !payload.jti || !payload.exp) {
+    if (
+      !payload ||
+      typeof payload !== "object" ||
+      payload.type !== "access" ||
+      typeof payload.sub !== "string" ||
+      !payload.sub ||
+      typeof payload.jti !== "string" ||
+      !payload.jti ||
+      typeof payload.exp !== "number" ||
+      !Number.isFinite(payload.exp) ||
+      payload.exp <= 0
+    ) {
       throw new UnauthorizedException(INVALID_ACCESS_TOKEN_MESSAGE);
     }
 
@@ -40,12 +53,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException(ACCESS_TOKEN_REVOKED_MESSAGE);
     }
 
+    const user = await this.usersService.findActiveAuthContext(payload.sub);
+    if (!user) {
+      throw new UnauthorizedException(INVALID_ACCESS_TOKEN_MESSAGE);
+    }
+
     return {
-      id: payload.sub,
-      username: payload.username,
-      email: payload.email,
+      id: user.id,
+      username: user.username,
+      email: user.email,
       tokenId: payload.jti,
       expiresAt: payload.exp,
+      roleCodes: user.roleCodes,
     };
   }
 }

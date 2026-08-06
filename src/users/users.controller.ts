@@ -14,8 +14,13 @@ import {
   Patch,
   Post,
   Query,
+  Req,
+  UseGuards,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import type { Request } from "express";
+import type { JwtAuthenticatedUser } from "../auth/auth.types";
+import { AdminGuard } from "../auth/guards/admin.guard";
 import { PaginationDto } from "../common/dto/pagination.dto";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
@@ -23,6 +28,7 @@ import { UsersService } from "./users.service";
 
 @ApiTags("用户")
 @ApiBearerAuth()
+@UseGuards(AdminGuard)
 /** 将 HTTP 请求委托给 UsersService 的控制器。 */
 @Controller("users")
 export class UsersController {
@@ -31,8 +37,11 @@ export class UsersController {
 
   /** 创建用户并返回不含密码的用户信息。 */
   @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  create(
+    @Body() createUserDto: CreateUserDto,
+    @Req() request: Request & { user: JwtAuthenticatedUser },
+  ) {
+    return this.usersService.create(createUserDto, request.user.id);
   }
 
   /** 按分页参数返回未删除用户。 */
@@ -52,14 +61,18 @@ export class UsersController {
   update(
     @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() updateUserDto: UpdateUserDto,
+    @Req() request: Request & { user: JwtAuthenticatedUser },
   ) {
-    return this.usersService.update(id, updateUserDto);
+    return this.usersService.update(id, updateUserDto, request.user.id);
   }
 
   /** 软删除指定用户。 */
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
-  remove(@Param("id", new ParseUUIDPipe({ version: "4" })) id: string) {
-    return this.usersService.remove(id);
+  remove(
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+    @Req() request: Request & { user: JwtAuthenticatedUser },
+  ) {
+    return this.usersService.remove(id, request.user.id);
   }
 }

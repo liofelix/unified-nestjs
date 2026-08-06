@@ -6,6 +6,7 @@ import { ApiProperty } from "@nestjs/swagger";
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import {
   ArrayUnique,
+  ArrayMaxSize,
   IsArray,
   IsEmail,
   IsOptional,
@@ -44,6 +45,7 @@ export class CreateUserDto {
   })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(100)
   @ArrayUnique()
   @IsUUID("4", { each: true })
   roleIds?: string[];

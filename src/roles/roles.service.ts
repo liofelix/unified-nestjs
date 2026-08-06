@@ -9,10 +9,11 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { EntityManager, In, QueryFailedError, Repository } from "typeorm";
+import { EntityManager, In, Repository } from "typeorm";
 import { BinaryStatus } from "../common/types/binary-status";
 import { PaginationDto } from "../common/dto/pagination.dto";
 import { PaginationResult } from "../common/types/pagination-result";
+import { isPostgresUniqueViolation } from "../common/errors/database-error";
 import { MenusService } from "../menus/menus.service";
 import { CreateRoleDto } from "./dto/create-role.dto";
 import { UpdateRoleDto } from "./dto/update-role.dto";
@@ -56,8 +57,12 @@ export class RolesService {
       return await this.rolesRepository.save(
         this.rolesRepository.create({ ...dto, createdBy: actorId }),
       );
-    } catch {
-      throw new ConflictException(ROLE_ALREADY_EXISTS_MESSAGE);
+    } catch (error) {
+      if (isPostgresUniqueViolation(error)) {
+        throw new ConflictException(ROLE_ALREADY_EXISTS_MESSAGE);
+      }
+
+      throw error;
     }
   }
 
@@ -125,7 +130,7 @@ export class RolesService {
 
       return this.findOne(savedRoleId);
     } catch (error) {
-      if (error instanceof QueryFailedError) {
+      if (isPostgresUniqueViolation(error)) {
         throw new ConflictException(ROLE_ALREADY_EXISTS_MESSAGE);
       }
 

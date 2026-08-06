@@ -15,12 +15,3 @@ export enum MenuType {
 
 /** 菜单节点类型允许的数字集合。 */
 export const MENU_TYPES = [MenuType.DIRECTORY, MenuType.PAGE, MenuType.BUTTON] as const;
-
-/** 目录菜单类型编码。 */
-export const MENU_TYPE_DIRECTORY = MenuType.DIRECTORY;
-
-/** 页面菜单类型编码。 */
-export const MENU_TYPE_PAGE = MenuType.PAGE;
-
-/** 按钮权限类型编码。 */
-export const MENU_TYPE_BUTTON = MenuType.BUTTON;

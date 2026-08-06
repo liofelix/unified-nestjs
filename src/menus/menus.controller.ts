@@ -17,7 +17,7 @@ import {
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { Request } from "express";
-import { JwtAuthenticatedUser } from "../auth/auth.types";
+import type { JwtAuthenticatedUser } from "../auth/auth.types";
 import { CreateMenuDto } from "./dto/create-menu.dto";
 import { UpdateMenuDto } from "./dto/update-menu.dto";
 import { MenusService } from "./menus.service";

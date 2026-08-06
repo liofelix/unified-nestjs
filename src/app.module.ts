@@ -5,6 +5,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
+import { ThrottlerModule } from "@nestjs/throttler";
 import { TypeOrmModule, type TypeOrmModuleOptions } from "@nestjs/typeorm";
 import { AgentsModule } from "./agents/agents.module";
 import { AppController } from "./app.controller";
@@ -25,6 +26,7 @@ import { WeatherModule } from "./weather/weather.module";
       isGlobal: true,
       envFilePath: process.env.NODE_ENV === "production" ? ".env.production" : ".env.development",
     }),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService): TypeOrmModuleOptions => ({
@@ -36,7 +38,10 @@ import { WeatherModule } from "./weather/weather.module";
         database: configService.getOrThrow<string>("DB_DATABASE"),
         autoLoadEntities: true,
         retryAttempts: 1,
-        synchronize: process.env.NODE_ENV !== "production",
+        // 仅允许明确的 development 环境自动同步，避免 staging/test 等环境意外改表。
+        synchronize:
+          (configService.get<string>("NODE_ENV") ?? process.env.NODE_ENV ?? "development") ===
+          "development",
         migrationsRun: false,
       }),
     }),

@@ -19,11 +19,13 @@ import {
   RequestMethod,
   Res,
   Sse,
+  UseGuards,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiProduces, ApiTags } from "@nestjs/swagger";
+import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import type { Request, Response } from "express";
 import { Observable } from "rxjs";
-import { JwtAuthenticatedUser } from "../auth/auth.types";
+import type { JwtAuthenticatedUser } from "../auth/auth.types";
 import { ChatService } from "./chat.service";
 import { CreateConversationDto } from "./dto/create-conversation.dto";
 import { ListConversationsDto } from "./dto/list-conversations.dto";
@@ -96,6 +98,9 @@ export class ChatController {
    * 客户端断开连接时通过 AbortController 取消 Agent 和后续持久化流程。
    */
   @Sse(":id/messages/stream", { method: RequestMethod.POST })
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiProduces("text/event-stream")
   streamMessage(
     @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,

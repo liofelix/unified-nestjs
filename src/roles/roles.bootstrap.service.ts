@@ -4,7 +4,7 @@
  */
 import { Injectable, OnApplicationBootstrap } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import { BinaryStatus } from "../common/types/binary-status";
 import { Role } from "./entities/role.entity";
 import { SYSTEM_ROLE_DEFINITIONS } from "./roles.constants";
@@ -18,13 +18,20 @@ export class RolesBootstrapService implements OnApplicationBootstrap {
     private readonly rolesRepository: Repository<Role>,
   ) {}
 
-  /** 逐个创建缺失的系统角色，并恢复被数据库直接软删除的系统角色。 */
+  /** 批量查询并保存缺失或状态异常的系统角色，避免启动时逐条往返数据库。 */
   async onApplicationBootstrap(): Promise<void> {
-    for (const definition of SYSTEM_ROLE_DEFINITIONS) {
-      const role = await this.rolesRepository.findOne({ where: { code: definition.code } });
+    const definitions = SYSTEM_ROLE_DEFINITIONS;
+    const roles = await this.rolesRepository.find({
+      where: { code: In(definitions.map(({ code }) => code)) },
+    });
+    const rolesByCode = new Map(roles.map((role) => [role.code, role]));
+    const rolesToSave: Role[] = [];
+
+    for (const definition of definitions) {
+      const role = rolesByCode.get(definition.code);
 
       if (!role) {
-        await this.rolesRepository.save(
+        rolesToSave.push(
           this.rolesRepository.create({ ...definition, isSystem: BinaryStatus.YES }),
         );
         continue;
@@ -35,8 +42,12 @@ export class RolesBootstrapService implements OnApplicationBootstrap {
         role.isDeleted = BinaryStatus.NO;
         role.deletedAt = null;
         role.deletedBy = null;
-        await this.rolesRepository.save(role);
+        rolesToSave.push(role);
       }
+    }
+
+    if (rolesToSave.length > 0) {
+      await this.rolesRepository.save(rolesToSave);
     }
   }
 }

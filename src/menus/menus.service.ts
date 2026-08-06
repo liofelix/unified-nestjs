@@ -10,21 +10,20 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { EntityManager, In, QueryFailedError, Repository } from "typeorm";
-import { JwtAuthenticatedUser } from "../auth/auth.types";
+import { EntityManager, In, Repository } from "typeorm";
+import type { FindOptionsWhere } from "typeorm";
+import type { JwtAuthenticatedUser } from "../auth/auth.types";
 import { BINARY_STATUSES, BinaryStatus } from "../common/types/binary-status";
 import { Role } from "../roles/entities/role.entity";
 import { SYSTEM_ROLE_CODES } from "../roles/roles.constants";
 import { User } from "../users/entities/user.entity";
 import { CreateMenuDto } from "./dto/create-menu.dto";
 import { UpdateMenuDto } from "./dto/update-menu.dto";
+import { MENU_TYPES, MenuType } from "./menus.constants";
 import {
-  MENU_TYPE_BUTTON,
-  MENU_TYPE_DIRECTORY,
-  MENU_TYPE_PAGE,
-  MENU_TYPES,
-  type MenuType,
-} from "./menus.constants";
+  getPostgresConflictText,
+  isPostgresUniqueViolation,
+} from "../common/errors/database-error";
 import { Menu } from "./entities/menu.entity";
 
 /** 菜单编码已被占用时的对外错误消息。 */
@@ -284,14 +283,17 @@ export class MenusService {
     this.addMenuAncestors(accessibleMenuIds, activeMenuById);
 
     const accessibleMenus = activeMenus.filter((menu) => accessibleMenuIds.has(menu.id));
-    const menuTree = accessibleMenus.filter((menu) => menu.type !== MENU_TYPE_BUTTON);
-    const permissions = accessibleMenus
-      .filter((menu) => menu.type === MENU_TYPE_BUTTON && menu.permission)
-      .map((menu) => menu.permission as string);
+    const menuTree = accessibleMenus.filter((menu) => menu.type !== MenuType.BUTTON);
+    const permissions = new Set<string>();
+    for (const menu of accessibleMenus) {
+      if (menu.type === MenuType.BUTTON && menu.permission) {
+        permissions.add(menu.permission);
+      }
+    }
 
     return {
       menus: this.buildTree(menuTree),
-      permissions: [...new Set(permissions)],
+      permissions: [...permissions],
     };
   }
 
@@ -305,18 +307,16 @@ export class MenusService {
 
   /** 将 DTO 字段转换为统一的数据库写入形状。 */
   private normalizeDraft(dto: CreateMenuDto | UpdateMenuDto, current?: Menu): MenuDraft {
-    const code = dto.code ?? current?.code;
-    const name = dto.name ?? current?.name;
-    const type = dto.type ?? current?.type;
-    const parentId = dto.parentId === undefined ? (current?.parentId ?? null) : dto.parentId;
-    const path = dto.path === undefined ? (current?.path ?? null) : dto.path;
-    const component = dto.component === undefined ? (current?.component ?? null) : dto.component;
-    const icon = dto.icon === undefined ? (current?.icon ?? null) : dto.icon;
-    const permission =
-      dto.permission === undefined ? (current?.permission ?? null) : dto.permission;
-    const sort = dto.sort === undefined ? (current?.sort ?? 0) : dto.sort;
-    const isVisible =
-      dto.isVisible === undefined ? (current?.isVisible ?? BinaryStatus.YES) : dto.isVisible;
+    const code = this.pickField(dto.code, current?.code, undefined);
+    const name = this.pickField(dto.name, current?.name, undefined);
+    const type = this.pickField(dto.type, current?.type, undefined);
+    const parentId = this.pickField(dto.parentId, current?.parentId, null);
+    const path = this.pickField(dto.path, current?.path, null);
+    const component = this.pickField(dto.component, current?.component, null);
+    const icon = this.pickField(dto.icon, current?.icon, null);
+    const permission = this.pickField(dto.permission, current?.permission, null);
+    const sort = this.pickField(dto.sort, current?.sort, 0);
+    const isVisible = this.pickField(dto.isVisible, current?.isVisible, BinaryStatus.YES);
 
     if (typeof code !== "string" || typeof name !== "string") {
       throw new BadRequestException("菜单编码和名称不能为空");
@@ -348,13 +348,18 @@ export class MenusService {
     };
   }
 
+  /** DTO 明确传值时优先使用 DTO，否则回退到当前实体或默认值。 */
+  private pickField<T>(value: T | undefined, current: T | null | undefined, fallback: T): T {
+    return value === undefined ? (current ?? fallback) : value;
+  }
+
   /** 校验菜单类型、父级层级、循环引用和唯一字段。 */
   private async validateDraft(draft: MenuDraft, currentId?: string): Promise<void> {
     if (!draft.code || !draft.name) {
       throw new BadRequestException("菜单编码和名称不能为空");
     }
 
-    if (draft.type === MENU_TYPE_BUTTON) {
+    if (draft.type === MenuType.BUTTON) {
       if (!draft.permission) {
         throw new BadRequestException(MENU_PERMISSION_REQUIRED_MESSAGE);
       }
@@ -370,12 +375,12 @@ export class MenusService {
         throw new BadRequestException(MENU_PATH_REQUIRED_MESSAGE);
       }
 
-      if (draft.type === MENU_TYPE_PAGE && !draft.component) {
+      if (draft.type === MenuType.PAGE && !draft.component) {
         throw new BadRequestException(MENU_COMPONENT_REQUIRED_MESSAGE);
       }
 
       draft.permission = null;
-      if (draft.type === MENU_TYPE_DIRECTORY) {
+      if (draft.type === MenuType.DIRECTORY) {
         draft.component = null;
       }
     }
@@ -385,37 +390,54 @@ export class MenusService {
         throw new ConflictException(MENU_PARENT_CYCLE_MESSAGE);
       }
 
-      const parent = await this.findActiveMenu(draft.parentId);
+      const activeMenus = await this.findActiveMenus();
+      const activeMenuById = new Map(activeMenus.map((menu) => [menu.id, menu]));
+      const parent = activeMenuById.get(draft.parentId);
+
+      if (!parent) {
+        throw new NotFoundException(MENU_NOT_FOUND_MESSAGE);
+      }
+
       const isValidParent =
-        draft.type === MENU_TYPE_BUTTON
-          ? parent.type === MENU_TYPE_PAGE
-          : parent.type === MENU_TYPE_DIRECTORY;
+        draft.type === MenuType.BUTTON
+          ? parent.type === MenuType.PAGE
+          : parent.type === MenuType.DIRECTORY;
 
       if (!isValidParent) {
         throw new BadRequestException(MENU_PARENT_TYPE_INVALID_MESSAGE);
       }
 
-      await this.assertNoParentCycle(currentId, draft.parentId);
+      this.assertNoParentCycle(currentId, draft.parentId, activeMenuById);
     }
 
-    const codeExists = await this.menusRepository.findOne({ where: { code: draft.code } });
-    if (codeExists && codeExists.id !== currentId) {
+    const conflictConditions: FindOptionsWhere<Menu>[] = [{ code: draft.code }];
+    if (draft.permission) {
+      conflictConditions.push({ permission: draft.permission });
+    }
+
+    const conflicts = await this.menusRepository.find({
+      where: conflictConditions,
+      select: { id: true, code: true, permission: true },
+    });
+    const codeExists = conflicts.some((menu) => menu.code === draft.code && menu.id !== currentId);
+    if (codeExists) {
       throw new ConflictException(MENU_CODE_ALREADY_EXISTS_MESSAGE);
     }
 
-    if (draft.permission) {
-      const permissionExists = await this.menusRepository.findOne({
-        where: { permission: draft.permission },
-      });
-
-      if (permissionExists && permissionExists.id !== currentId) {
-        throw new ConflictException(MENU_PERMISSION_ALREADY_EXISTS_MESSAGE);
-      }
+    const permissionExists = conflicts.some(
+      (menu) => menu.permission === draft.permission && menu.id !== currentId,
+    );
+    if (draft.permission && permissionExists) {
+      throw new ConflictException(MENU_PERMISSION_ALREADY_EXISTS_MESSAGE);
     }
   }
 
   /** 沿父链向上检查菜单不能形成循环。 */
-  private async assertNoParentCycle(menuId: string | undefined, parentId: string): Promise<void> {
+  private assertNoParentCycle(
+    menuId: string | undefined,
+    parentId: string,
+    menuById: Map<string, Menu>,
+  ): void {
     if (!menuId) {
       return;
     }
@@ -429,7 +451,11 @@ export class MenusService {
       }
 
       visitedIds.add(currentParentId);
-      const parent = await this.findActiveMenu(currentParentId);
+      const parent = menuById.get(currentParentId);
+      if (!parent) {
+        throw new NotFoundException(MENU_NOT_FOUND_MESSAGE);
+      }
+
       currentParentId = parent.parentId;
     }
   }
@@ -527,7 +553,11 @@ export class MenusService {
     }
 
     for (const menu of menus) {
-      const node = nodes.get(menu.id) as MenuTreeNode;
+      const node = nodes.get(menu.id);
+      if (!node) {
+        continue;
+      }
+
       const parent = menu.parentId ? nodes.get(menu.parentId) : undefined;
 
       if (parent) {
@@ -590,15 +620,19 @@ export class MenusService {
 
   /** 将数据库唯一约束错误映射为稳定的业务冲突消息。 */
   private throwSaveConflict(error: unknown): never {
-    if (!(error instanceof QueryFailedError)) {
+    if (!isPostgresUniqueViolation(error)) {
       throw error;
     }
 
-    const driverError = error.driverError as { constraint?: string };
-    if (driverError.constraint?.includes("permission")) {
+    const conflictText = getPostgresConflictText(error);
+    if (conflictText.includes("permission")) {
       throw new ConflictException(MENU_PERMISSION_ALREADY_EXISTS_MESSAGE);
     }
 
-    throw new ConflictException(MENU_CODE_ALREADY_EXISTS_MESSAGE);
+    if (conflictText.includes("code")) {
+      throw new ConflictException(MENU_CODE_ALREADY_EXISTS_MESSAGE);
+    }
+
+    throw error;
   }
 }

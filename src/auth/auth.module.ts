@@ -11,6 +11,7 @@ import { UsersModule } from "../users/users.module";
 import { AuthController } from "./auth.controller";
 import { AuthRevocationService } from "./auth.revocation.service";
 import { AuthService } from "./auth.service";
+import { AdminGuard } from "./guards/admin.guard";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 
 /** NestJS 认证模块的依赖注入配置。 */
@@ -31,6 +32,6 @@ import { JwtStrategy } from "./strategies/jwt.strategy";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthRevocationService, JwtStrategy],
+  providers: [AuthService, AuthRevocationService, AdminGuard, JwtStrategy],
 })
 export class AuthModule {}

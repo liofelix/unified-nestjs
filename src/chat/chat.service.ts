@@ -3,6 +3,7 @@
  * 负责会话和消息的持久化、用户范围校验、软删除以及 Agent 回复的 SSE 事件编排。
  */
 import {
+  BadRequestException,
   HttpException,
   Injectable,
   InternalServerErrorException,
@@ -11,7 +12,11 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { randomUUID } from "node:crypto";
 import { IsNull, Repository } from "typeorm";
-import type { AgentHistoryMessage, AgentMessageRole } from "../agents/agents.types";
+import {
+  MAX_AGENT_OUTPUT_LENGTH,
+  type AgentHistoryMessage,
+  type AgentMessageRole,
+} from "../agents/agents.types";
 import { AgentsRegistry } from "../agents/agents.registry";
 import { PaginationResult } from "../common/types/pagination-result";
 import { ChatMessageRole } from "./chat.constants";
@@ -33,6 +38,8 @@ const AGENT_EMPTY_RESPONSE_MESSAGE = "Agent 未返回有效内容";
 const HISTORY_MESSAGE_LIMIT = 20;
 /** 数据库中出现未声明消息角色时的内部错误消息。 */
 const INVALID_CHAT_MESSAGE_ROLE_MESSAGE = "聊天消息角色数据不合法";
+/** Agent 输出超过长度上限时的安全错误消息。 */
+const AGENT_OUTPUT_TOO_LONG_MESSAGE = "Agent 输出超出允许长度";
 
 /** 编排聊天会话、消息存储和 Agent 流式回复的服务。 */
 @Injectable()
@@ -141,7 +148,7 @@ export class ChatService {
 
     return this.messageRepository.find({
       where: { conversationId: id, deletedAt: IsNull() },
-      order: { createdAt: "ASC" },
+      order: { createdAt: "ASC", id: "ASC" },
     });
   }
 
@@ -167,7 +174,8 @@ export class ChatService {
     }
 
     const requestId = randomUUID();
-    let assistantText = "";
+    const assistantChunks: string[] = [];
+    let assistantTextLength = 0;
 
     try {
       await this.messageRepository.save({
@@ -176,7 +184,7 @@ export class ChatService {
         content: dto.message,
         createdBy: userId,
       });
-      await this.touchConversation(conversation, userId);
+      await this.touchConversation(id, userId);
 
       const history = await this.getRecentHistory(id);
       const agent = this.agentsRegistry.getOrThrow(conversation.agentCode);
@@ -191,13 +199,19 @@ export class ChatService {
           return;
         }
 
-        assistantText += text;
-        yield { type: "delta", data: { text } };
+        assistantTextLength += text.length;
+        if (assistantTextLength > MAX_AGENT_OUTPUT_LENGTH) {
+          throw new BadRequestException(AGENT_OUTPUT_TOO_LONG_MESSAGE);
+        }
+
+        assistantChunks.push(text);
       }
 
       if (signal?.aborted) {
         return;
       }
+
+      const assistantText = assistantChunks.join("");
 
       if (!assistantText.trim()) {
         yield {
@@ -207,13 +221,22 @@ export class ChatService {
         return;
       }
 
+      // Agent 流完成且安全检查通过后才开始发送增量，避免无法撤回的敏感片段泄露。
+      for (const text of assistantChunks) {
+        if (signal?.aborted) {
+          return;
+        }
+
+        yield { type: "delta", data: { text } };
+      }
+
       const assistantMessage = await this.messageRepository.save({
         conversationId: id,
         role: ChatMessageRole.ASSISTANT,
         content: assistantText,
         createdBy: userId,
       });
-      await this.touchConversation(conversation, userId);
+      await this.touchConversation(id, userId);
       yield { type: "done", data: { requestId, assistantMessageId: assistantMessage.id } };
     } catch (error) {
       if (signal?.aborted) {
@@ -228,7 +251,7 @@ export class ChatService {
   private async getRecentHistory(conversationId: string): Promise<AgentHistoryMessage[]> {
     const messages = await this.messageRepository.find({
       where: { conversationId, deletedAt: IsNull() },
-      order: { createdAt: "DESC" },
+      order: { createdAt: "DESC", id: "DESC" },
       take: HISTORY_MESSAGE_LIMIT,
     });
 
@@ -252,20 +275,21 @@ export class ChatService {
   }
 
   /** 更新会话最近活动时间和修改者。 */
-  private async touchConversation(conversation: ChatConversation, userId: string): Promise<void> {
-    conversation.updatedAt = new Date();
-    conversation.updatedBy = userId;
-    await this.conversationRepository.save(conversation);
+  private async touchConversation(conversationId: string, userId: string): Promise<void> {
+    await this.conversationRepository.update(
+      { id: conversationId, createdBy: userId, deletedAt: IsNull() },
+      { updatedAt: new Date(), updatedBy: userId },
+    );
   }
 
   /** 将 HTTP 异常保留为业务消息，其余 Agent 错误统一隐藏底层细节。 */
   private errorEvent(error: unknown, code: string): ChatSseEvent {
-    const message =
-      error instanceof HttpException
-        ? error.message
-        : error instanceof Error && error.message === AGENT_EMPTY_RESPONSE_MESSAGE
-          ? error.message
-          : AGENT_FAILED_MESSAGE;
+    let message = AGENT_FAILED_MESSAGE;
+    if (error instanceof HttpException) {
+      message = error.message;
+    } else if (error instanceof Error && error.message === AGENT_EMPTY_RESPONSE_MESSAGE) {
+      message = error.message;
+    }
 
     return { type: "error", data: { code, message } };
   }

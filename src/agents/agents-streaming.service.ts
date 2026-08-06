@@ -4,15 +4,17 @@
  * 并将输入或输出安全校验触发的底层异常转换为业务层可识别的 HTTP 错误。
  */
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { Agent } from "@openai/agents";
+import { Agent, assistant, type AgentInputItem, user } from "@openai/agents";
 import { AgentsRunnerFactory } from "./agents-runner.factory";
-import { AgentStreamInput } from "./agents.types";
+import { MAX_AGENT_OUTPUT_LENGTH, type AgentStreamInput } from "./agents.types";
 
 /** 单次对话允许的最大工具或 Agent 调用轮数。 */
 const MAX_AGENT_TURNS = 6;
 
 /** 安全校验触发时对客户端隐藏底层细节的统一错误消息。 */
 const AGENT_GUARDRAIL_REJECTED_MESSAGE = "请求未通过 Agent 安全校验，请调整后重试。";
+/** Agent 输出超过长度上限时对客户端返回的安全错误消息。 */
+const AGENT_OUTPUT_TOO_LONG_MESSAGE = "Agent 输出超出允许长度";
 
 /** OpenAI Agents SDK 在输入或输出 guardrail 触发时使用的错误名称。 */
 const GUARDRAIL_TRIPWIRE_ERROR_NAMES = new Set([
@@ -32,8 +34,8 @@ export class AgentsStreamingService {
   /**
    * 启动一次流式 Agent 对话。
    *
-   * 会话历史会先转换为带角色标记的文本；执行最多允许 6 轮工具或 Agent 调用，
-   * 中途产生的非空文本会立即 yield，完成事件则在流结束前等待确认。
+   * 会话历史会转换为保留角色边界的结构化消息；执行最多允许 6 轮工具或 Agent 调用，
+   * 文本会先在有界缓冲区中收集，只有完成事件和输出 guardrail 都通过后才 yield。
    */
   async *stream(agent: Agent, input: AgentStreamInput): AsyncGenerator<string> {
     try {
@@ -45,16 +47,33 @@ export class AgentsStreamingService {
           stream: true,
         });
       const textStream = stream.toTextStream({ compatibleWithNodeStreams: true });
+      const chunks: string[] = [];
+      let outputLength = 0;
 
       for await (const chunk of textStream) {
+        if (input.signal?.aborted) {
+          return;
+        }
+
         const text = typeof chunk === "string" ? chunk : chunk.toString();
 
         if (text) {
-          yield text;
+          outputLength += text.length;
+          if (outputLength > MAX_AGENT_OUTPUT_LENGTH) {
+            throw new BadRequestException(AGENT_OUTPUT_TOO_LONG_MESSAGE);
+          }
+
+          chunks.push(text);
         }
       }
 
       await stream.completed;
+
+      if (input.signal?.aborted) {
+        return;
+      }
+
+      yield* chunks;
     } catch (error) {
       if (this.isGuardrailTripwire(error)) {
         throw new BadRequestException(AGENT_GUARDRAIL_REJECTED_MESSAGE);
@@ -64,13 +83,11 @@ export class AgentsStreamingService {
     }
   }
 
-  /** 将结构化会话历史转换成模型可读的中文对话文本。 */
-  private toAgentInput(input: AgentStreamInput): string {
-    const conversation = input.history
-      .map((item) => `${item.role === "user" ? "用户" : "助手"}：${item.content}`)
-      .join("\n");
-
-    return `以下是当前会话记录：\n${conversation}`;
+  /** 将持久化会话历史转换为 SDK 原生的结构化消息，避免文本角色标记被内容伪造。 */
+  private toAgentInput(input: AgentStreamInput): AgentInputItem[] {
+    return input.history.map((item) =>
+      item.role === "user" ? user(item.content) : assistant(item.content),
+    );
   }
 
   /** 判断异常是否属于输入或输出 guardrail 触发。 */

@@ -91,11 +91,3 @@ export interface WeatherCurrentSummary {
     unit: "km/h";
   };
 }
-
-/** Agent 聊天接口向客户端发送的天气相关 SSE 事件结构。 */
-export interface WeatherSseEvent {
-  /** 事件类型。 */
-  type: "meta" | "delta" | "done" | "error";
-  /** 事件数据。 */
-  data: Record<string, string>;
-}

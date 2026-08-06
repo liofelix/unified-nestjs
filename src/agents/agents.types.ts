@@ -32,6 +32,9 @@ export interface AgentStreamInput {
   signal?: AbortSignal;
 }
 
+/** 单次 Agent 回复允许的最大字符数。 */
+export const MAX_AGENT_OUTPUT_LENGTH = 32_000;
+
 /** 领域 Agent 必须实现的最小运行契约。 */
 export interface ChatAgent {
   /** 注册表和展示接口使用的 Agent 元数据。 */

@@ -22,12 +22,19 @@ export class AgentsRunnerFactory {
   /** 注入统一配置服务，读取 Agent 专用环境变量。 */
   constructor(private readonly configService: ConfigService) {}
 
+  /** 已按当前配置创建并可跨请求复用的 Runner。 */
+  private runner?: Runner;
+
   /**
    * 创建一次 Agent 运行器。
    * 连接配置不完整或 API 模式非法时立即抛出服务不可用异常；tracing 默认关闭，
    * 且始终禁止把敏感数据写入 trace。
    */
   createRunner(): Runner {
+    if (this.runner) {
+      return this.runner;
+    }
+
     const apiKey = this.configService.get<string>("AGENT_LLM_API_KEY")?.trim();
     const model = this.configService.get<string>("AGENT_LLM_MODEL")?.trim();
 
@@ -41,7 +48,7 @@ export class AgentsRunnerFactory {
     // 只有显式配置为字符串 true 才启用 tracing。
     const tracingEnabled = this.configService.get<string>("AGENT_TRACING_ENABLED") === "true";
 
-    return new Runner({
+    this.runner = new Runner({
       model,
       modelProvider: new OpenAIProvider({
         apiKey,
@@ -52,6 +59,8 @@ export class AgentsRunnerFactory {
       tracingDisabled: !tracingEnabled,
       traceIncludeSensitiveData: false,
     });
+
+    return this.runner;
   }
 
   /** 读取并校验模型 API 模式，未配置时默认使用 Chat Completions。 */

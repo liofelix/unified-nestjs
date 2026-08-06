@@ -4,6 +4,7 @@
  */
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { AdminGuard } from "../auth/guards/admin.guard";
 import { MenusModule } from "../menus/menus.module";
 import { Role } from "./entities/role.entity";
 import { RolesBootstrapService } from "./roles.bootstrap.service";
@@ -14,7 +15,7 @@ import { RolesService } from "./roles.service";
 @Module({
   imports: [TypeOrmModule.forFeature([Role]), MenusModule],
   controllers: [RolesController],
-  providers: [RolesService, RolesBootstrapService],
+  providers: [RolesService, RolesBootstrapService, AdminGuard],
   exports: [RolesService],
 })
 export class RolesModule {}
